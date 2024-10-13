@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "dockerode": "^4.0.2",
+    "react": "^18.3.1",
     "testcontainers": "^10.13.1",
     "zustand": "^5.0.0-rc.2"
   }

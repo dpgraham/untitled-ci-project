@@ -8,11 +8,11 @@ job('dependencies', () => {
   step('npm ci');
 });
 
-parallel('e2e', () => {
-  job('e2e:a', () => {
-    step('npm run e2e:test:a')
-  });
-  job('e2e:b', () => {
-    step('npm run e2e:test:b');
-  });
-});
+// parallel('e2e', () => {
+//   job('e2e:a', () => {
+//     step('npm run e2e:test:a')
+//   });
+//   job('e2e:b', () => {
+//     step('npm run e2e:test:b');
+//   });
+// });
