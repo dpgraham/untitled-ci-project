@@ -1,50 +1,21 @@
-const { GenericContainer } = require('testcontainers');
 const path = require('path');
 const glob = require('glob');
-const { create } = require('zustand');
 const DockerExecutor = require('./executors/docker');
-
-const pipeline = create((set) => ({
-  jobs: [],
-  image: null,
-  currentFiles: [],
-  ignorePatterns: [],
-  status: 'queued',
-  result: 'in progress',
-  setImage: (image) => set({ image }),
-  addJob: (job) => set((state) => ({ jobs: [...state.jobs, job] })),
-  addStep: (step) => set((state) => {
-    const updatedJobs = [...state.jobs];
-    const lastJob = updatedJobs[updatedJobs.length - 1];
-    lastJob.steps = lastJob.steps || [];
-    lastJob.steps.push(step);
-    return { jobs: updatedJobs };
-  }),
-  setCurrentFiles: (files) => set({ currentFiles: files }),
-  addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
-  reset: () => set({ jobs: [], image: null, currentFiles: [], ignorePatterns: [], status: 'queued', result: 'in progress' }),
-  setJobExitCode: (jobIndex, exitCode) => set((state) => {
-    const updatedJobs = [...state.jobs];
-    updatedJobs[jobIndex] = { ...updatedJobs[jobIndex], exitCode };
-    return { jobs: updatedJobs };
-  }),
-  setStatus: (status) => set({ status }),
-  setResult: (result) => set({ result }),
-}));
+const pipelineStore = require('./pipeline.store');
 
 // Pipeline definition functions
 global.image = (imageName) => {
-  pipeline.getState().setImage(imageName);
+  pipelineStore.getState().setImage(imageName);
 };
 
 global.job = (name, fn) => {
   const jobDef = { name, steps: [] };
-  pipeline.getState().addJob(jobDef);
+  pipelineStore.getState().addJob(jobDef);
   fn(jobDef);
 };
 
 global.step = (command) => {
-  const state = pipeline.getState();
+  const state = pipelineStore.getState();
   const jobs = state.jobs;
   if (jobs.length === 0) {
     throw new Error('Steps cannot be set outside of a job');
@@ -52,29 +23,29 @@ global.step = (command) => {
   const currentJob = jobs[jobs.length - 1];
   currentJob.steps = currentJob.steps || [];
   currentJob.steps.push({ command });
-  pipeline.setState({ jobs });
+  pipelineStore.setState({ jobs });
 };
 
 global.files = (globPattern) => {
-  pipeline.getState().setCurrentFiles(globPattern);
+  pipelineStore.getState().setCurrentFiles(globPattern);
 };
 
 global.ignore = (...patterns) => {
-  pipeline.getState().addIgnorePatterns(patterns);
+  pipelineStore.getState().addIgnorePatterns(patterns);
 };
 
 async function runPipeline(pipelineFile) {
   // Clear previous definitions
-  pipeline.getState().reset();
+  pipelineStore.getState().reset();
 
   // Load and execute the pipeline definition
   require(pipelineFile);
 
-  const { image: currentImage, currentFiles, ignorePatterns } = pipeline.getState();
+  const { image: currentImage, currentFiles, ignorePatterns } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
   if (!currentImage) {
-    pipeline.getState().setImage('alpine:latest');
+    pipelineStore.getState().setImage('alpine:latest');
     console.warn('No image specified in the pipeline. Defaulting to alpine:latest');
   }
 
@@ -110,10 +81,10 @@ async function runPipeline(pipelineFile) {
   let allJobsPassed = true;
   try {
     // Run jobs and stages in the order they were defined
-    const jobs = pipeline.getState().jobs;
+    const jobs = pipelineStore.getState().jobs;
     for (const job of jobs) {
       const exitCode = await runJob(executor, job);
-      pipeline.getState().setJobExitCode(i, exitCode);
+      pipelineStore.getState().setJobExitCode(i, exitCode);
       if (exitCode !== 0) {
         console.error(`Pipeline execution stopped due to job '${job.name}' failure.`);
         allJobsPassed = false;
@@ -124,14 +95,14 @@ async function runPipeline(pipelineFile) {
   } catch (e) {
     console.error('Failed ', e.message);
     // Set exitCode to 1 for the last job in case of unexpected errors
-    const jobs = pipeline.getState().jobs;
+    const jobs = pipelineStore.getState().jobs;
     if (jobs.length > 0) {
-      pipeline.getState().setJobExitCode(i, 1);
+      pipelineStore.getState().setJobExitCode(i, 1);
     }
     allJobsPassed = false;
   } finally {
     // Set the overall pipeline status
-    pipeline.getState().setStatus(allJobsPassed ? 'passed' : 'failed');
+    pipelineStore.getState().setStatus(allJobsPassed ? 'passed' : 'failed');
     await executor.stop();
   }
 }
