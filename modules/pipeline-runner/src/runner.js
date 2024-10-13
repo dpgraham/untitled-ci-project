@@ -2,11 +2,9 @@ const { GenericContainer } = require('testcontainers');
 const path = require('path');
 const glob = require('glob');
 const { create } = require('zustand');
-const Docker = require("dockerode");
+const DockerExecutor = require('./executors/docker');
 
-const docker = new Docker();
-
-let pipeline = create((set) => ({
+const pipeline = create((set) => ({
   jobs: [],
   image: null,
   currentFiles: [],
@@ -83,37 +81,25 @@ async function runPipeline(pipelineFile) {
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
 
-  // Create base container
-  let container;
+  const executor = new DockerExecutor();
   try {
-    container = await new GenericContainer(currentImage)
-      .withWorkingDir('/app')
-      .withStartupTimeout(120000) // Increase timeout to 2 minutes
-      .withPrivilegedMode(true) // Run in privileged mode
-      .withCommand(["sh", "-c", "echo 'Container is ready' && tail -f /dev/null"])
-      .start();
-    
-    console.log('Container is ready. Starting pipeline execution.');
+    await executor.start(currentImage, '/app');
 
-     // Copy files matching the glob pattern to the container
-     if (currentFiles) {
+    // Copy files matching the glob pattern to the container
+    if (currentFiles) {
       const destPath = '/app';
       const files = glob.sync(currentFiles, { 
         nodir: true,
         ignore: ignorePatterns,
         dot: true,
         recursive: true,
-        cwd: pipelineDir, // Set the current working directory for glob to the pipeline file's directory
+        cwd: pipelineDir,
       });
-      for (const file of files) {
-        const absolutePath = path.resolve(pipelineDir, file);
-        const relativePath = path.relative(pipelineDir, absolutePath);
-        const containerPath = path.posix.join(destPath, relativePath);
-        await container.copyFilesToContainer([{
-          source: absolutePath,
-          target: containerPath,
-        }]);
-      }
+      const filesToCopy = files.map(file => ({
+        source: path.resolve(pipelineDir, file),
+        target: path.posix.join(destPath, path.relative(pipelineDir, file)),
+      }));
+      await executor.copyFiles(filesToCopy, destPath);
     }
   } catch (err) {
     console.error('Failed to start the container or copy files. Please check your Docker installation and permissions.');
@@ -126,7 +112,7 @@ async function runPipeline(pipelineFile) {
     // Run jobs and stages in the order they were defined
     const jobs = pipeline.getState().jobs;
     for (const job of jobs) {
-      const exitCode = await runJob(container, job);
+      const exitCode = await runJob(executor, job);
       pipeline.getState().setJobExitCode(i, exitCode);
       if (exitCode !== 0) {
         console.error(`Pipeline execution stopped due to job '${job.name}' failure.`);
@@ -146,56 +132,27 @@ async function runPipeline(pipelineFile) {
   } finally {
     // Set the overall pipeline status
     pipeline.getState().setStatus(allJobsPassed ? 'passed' : 'failed');
-    await container.stop();
+    await executor.stop();
   }
 }
 
-async function runJob(container, job) {
+async function runJob(executor, job) {
   console.log(`Running job: ${job.name}`);
-  let exitCode;
   for (const step of job.steps) {
     try {
-      console.log(`Executing step: ${step.command}`);
-      const dockerContainer = docker.getContainer(container.getId());
-
-      // Execute a command in the container, e.g., 'ls -l'
-      const exec = await dockerContainer.exec({
-        Cmd: ["sh", "-c", step.command],
-        AttachStdout: true,
-        AttachStderr: true,
-        Tty: false,
-      });
-
-      // Start the exec command with stream output
-      const stream = await exec.start({ hijack: true, stdin: false });
-
-      // Stream the output as it comes in
-      docker.modem.demuxStream(stream, process.stdout, process.stderr);
-      
-      const promise = new Promise((resolve, reject) => {
-        stream.on("end", async () => {
-          const execInspect = await exec.inspect();
-          exitCode = execInspect.ExitCode;
-          if (exitCode === 0) resolve();
-          else reject();
-          resolve();
-        });
-      });
-
-      await promise;
-
+      const exitCode = await executor.runStep(step);
       if (exitCode !== 0) {
         console.error(`Step failed with exit code: ${exitCode}`);
         return exitCode;
       }
     } catch (error) {
       console.error(`Error executing step: ${step.command}`);
-      console.error(`Error details: ${error.message}`);
+      console.error(`Error details: ${error}`);
       return 1;
     }
   }
   
-  console.log(`Job '${job.name}' finished with exit code: ${exitCode}`);
+  console.log(`Job '${job.name}' finished successfully`);
   return 0;
 }
 
