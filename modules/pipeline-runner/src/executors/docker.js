@@ -20,7 +20,7 @@ class DockerExecutor {
     return this.container;
   }
 
-  async copyFiles(files, destPath) {
+  async copyFiles(files) {
     for (const file of files) {
       await this.container.copyFilesToContainer([{
         source: file.source,
@@ -32,13 +32,17 @@ class DockerExecutor {
   async runStep(step) {
     console.log(`Executing step: ${step.command}`);
     const dockerContainer = this.docker.getContainer(this.container.getId());
+    const execCommand = ["sh", "-c", step.command];
+    this.execCommand = execCommand;
 
-    const exec = await dockerContainer.exec({
-      Cmd: ["sh", "-c", step.command],
+    this.exec = await dockerContainer.exec({
+      Cmd: execCommand,
       AttachStdout: true,
       AttachStderr: true,
       Tty: false,
     });
+
+    const exec = this.exec;
 
     const stream = await exec.start({ hijack: true, stdin: false });
 
@@ -46,12 +50,37 @@ class DockerExecutor {
     
     return new Promise((resolve, reject) => {
       stream.on("end", async () => {
+        this.execCommand = null;
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
         if (exitCode === 0) resolve(exitCode);
         else reject(exitCode);
       });
     });
+  }
+
+  async stopExec() {
+    const dockerContainer = this.docker.getContainer(this.container.getId());
+    const { Processes: processes } = await dockerContainer.top();
+    for (const process of processes) {
+      for (let i=0; i<process.length; i++) {
+        const arg = process[i];
+        
+        if (arg === this.execCommand?.join(' ')) {
+            const pid = process[1];
+            // Execute the kill command inside the container
+            const exec = await dockerContainer.exec({
+                Cmd: ['kill', '-9', pid], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
+                AttachStdout: true,
+                AttachStderr: true
+            });
+        
+            // Start the execution
+            const stream = await exec.start();
+        }
+      }
+    }
+    
   }
 
   async stop() {
@@ -62,4 +91,3 @@ class DockerExecutor {
 }
 
 module.exports = DockerExecutor;
-

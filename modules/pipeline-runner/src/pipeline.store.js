@@ -3,9 +3,9 @@ const { create } = require('zustand');
 const pipelineStore = create((set) => ({
   jobs: [],
   image: null,
-  currentFiles: [],
+  files: './',
   ignorePatterns: [],
-  status: 'queued',
+  status: 'pending',
   result: 'in progress',
   setImage: (image) => set({ image }),
   addJob: (job) => set((state) => ({ jobs: [...state.jobs, job] })),
@@ -16,9 +16,12 @@ const pipelineStore = create((set) => ({
     lastJob.steps.push(step);
     return { jobs: updatedJobs };
   }),
-  setCurrentFiles: (files) => set({ currentFiles: files }),
+  setFiles: (files) => set({ files }),
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
-  reset: () => set({ jobs: [], image: null, currentFiles: [], ignorePatterns: [], status: 'queued', result: 'in progress' }),
+  reset: () => set((state) => ({
+    ...state,
+    jobs: state.jobs.map(job => ({ ...job, status: 'pending' })), // Update job statuses to 'pending'
+  })),
   setJobExitCode: (jobIndex, exitCode) => set((state) => {
     const updatedJobs = [...state.jobs];
     updatedJobs[jobIndex] = { ...updatedJobs[jobIndex], exitCode };
@@ -26,6 +29,8 @@ const pipelineStore = create((set) => ({
   }),
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
+  pipelineFile: null, // Add this line to store the pipeline file path
+  setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
 }));
 
 module.exports = pipelineStore;

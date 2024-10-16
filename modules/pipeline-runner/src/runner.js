@@ -2,6 +2,9 @@ const path = require('path');
 const glob = require('glob');
 const DockerExecutor = require('./executors/docker');
 const pipelineStore = require('./pipeline.store');
+const { Command } = require('commander');
+const chokidar = require('chokidar'); // Add chokidar library
+const fs = require('fs'); // Add fs module
 
 // Pipeline definition functions
 global.image = (imageName) => {
@@ -27,21 +30,22 @@ global.step = (command) => {
 };
 
 global.files = (globPattern) => {
-  pipelineStore.getState().setCurrentFiles(globPattern);
+  pipelineStore.getState().setFiles(globPattern);
 };
 
 global.ignore = (...patterns) => {
   pipelineStore.getState().addIgnorePatterns(patterns);
 };
 
-async function runPipeline(pipelineFile) {
+async function buildPipeline(pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
+  pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
   require(pipelineFile);
 
-  const { image: currentImage, currentFiles, ignorePatterns } = pipelineStore.getState();
+  const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
   if (!currentImage) {
@@ -52,31 +56,36 @@ async function runPipeline(pipelineFile) {
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
 
-  const executor = new DockerExecutor();
   try {
+    let executor = new DockerExecutor();
     await executor.start(currentImage, '/app');
 
     // Copy files matching the glob pattern to the container
-    if (currentFiles) {
+    if (files) {
       const destPath = '/app';
-      const files = glob.sync(currentFiles, { 
-        nodir: true,
-        ignore: ignorePatterns,
-        dot: true,
-        recursive: true,
-        cwd: pipelineDir,
-      });
+      // Replace glob.sync with fs to read files recursively
+      const files = fs.readdirSync(pipelineDir, { withFileTypes: true })
+        .flatMap(dirent => {
+          const res = path.resolve(pipelineDir, dirent.name);
+          return dirent.isDirectory() ? 
+            fs.readdirSync(res, { withFileTypes: true }).map(innerDirent => path.join(res, innerDirent.name)) : 
+            res;
+        })
+        .filter(file => !ignorePatterns.some(pattern => file.includes(pattern)) && fs.statSync(file).isFile());
       const filesToCopy = files.map(file => ({
         source: path.resolve(pipelineDir, file),
         target: path.posix.join(destPath, path.relative(pipelineDir, file)),
       }));
-      await executor.copyFiles(filesToCopy, destPath);
+      await executor.copyFiles(filesToCopy);
     }
+    return executor;
   } catch (err) {
     console.error('Failed to start the container or copy files. Please check your Docker installation and permissions.');
     throw err;
   }
+}
 
+async function runPipeline(executor) {
   let i = 0;
   let allJobsPassed = true;
   try {
@@ -102,9 +111,17 @@ async function runPipeline(pipelineFile) {
     allJobsPassed = false;
   } finally {
     // Set the overall pipeline status
-    pipelineStore.getState().setStatus(allJobsPassed ? 'passed' : 'failed');
-    await executor.stop();
+    const pipelineStatus = allJobsPassed ? 'passed' : 'failed';
+    pipelineStore.getState().setStatus(pipelineStatus);
+
+    // Log success message if the pipeline passed
+    if (pipelineStatus === 'passed') {
+      console.log('Pipeline passed');
+    }
   }
+
+  // Return the executor so it can be stopped later
+  return executor;
 }
 
 async function runJob(executor, job) {
@@ -129,12 +146,69 @@ async function runJob(executor, job) {
 
 // Main execution
 if (require.main === module) {
-  const pipelineFile = path.resolve(process.cwd(), process.argv[2]);
-  if (!pipelineFile) {
-    console.error('Please provide a pipeline file as an argument.');
-    process.exit(1);
-  }
-  runPipeline(pipelineFile).catch(console.error);
+  const program = new Command();
+
+  program
+    .name('pipeline-runner')
+    .description('Run a pipeline')
+    .argument('<file>', 'Path to the pipeline file')
+    .action(async (file) => {
+      const pipelineFile = path.resolve(process.cwd(), file);
+      let executor;
+
+      const runAndWatchPipeline = async () => {
+        try {
+          await runPipeline(executor);
+          const pipelineStatus = pipelineStore.getState().status;
+          if (pipelineStatus === 'passed') {
+            console.log('Pipeline execution completed successfully.');
+          } else {
+            console.log('Pipeline execution completed with failures.');
+          }
+        } catch (error) {
+          console.error('Pipeline execution failed:', error);
+          if (executor) {
+            await executor.stop();
+          }
+          process.exit(1);
+        } finally {
+          console.log('Press "q" and Enter to quit the pipeline.');
+        }
+      };
+
+      executor = await buildPipeline(pipelineFile);
+
+      // Watch for file changes
+
+      // Initial run
+      runAndWatchPipeline();
+      const watcher = chokidar.watch(pipelineStore.getState().files, { persistent: true });
+      watcher.on('change', async (filePath) => {
+        console.log(`File ${filePath} has been changed. Re-running the pipeline...`);
+        await executor.stopExec(); // TODO: Only stop if the current running job was invalidated
+        runAndWatchPipeline();
+      });
+      
+      // Set up readline interface for user input
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      readline.on('line', async (input) => {
+        if (input.toLowerCase() === 'q') {
+          console.log('Stopping executor and exiting pipeline...');
+          if (executor) {
+            await executor.stop();
+          }
+          readline.close();
+          process.exit(0);
+        }
+      });
+
+    });
+
+  program.parse(process.argv);
 }
 
 module.exports = { runPipeline };

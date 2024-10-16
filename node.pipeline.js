@@ -1,6 +1,6 @@
 image('node:20');
 
-files('**/*');
+files('./');
 ignore('node_modules/**/*');
 
 job('dependencies', () => {
