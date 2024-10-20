@@ -1,4 +1,6 @@
 const { create } = require('zustand');
+const { produce } = require('immer');
+const picomatch = require('picomatch');
 
 const pipelineStore = create((set) => ({
   jobs: [],
@@ -31,6 +33,30 @@ const pipelineStore = create((set) => ({
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
+  setJobStatus: (job, status) => set((state) => {
+    const updatedJobs = state.jobs.map(otherJob => 
+      otherJob.name === job.name ? { ...job, status } : otherJob // Update status if name matches
+    );
+    return { jobs: updatedJobs };
+  }),
+  getNextJob: () => {
+    return pipelineStore.getState().jobs.find(job => job.status === 'pending'); // Find the first pending job
+  },
+  resetJobs: (filepath) => set((state) => {
+    return produce(state, draft => {
+      let hasInvalidatedAJob = false;
+      for (const job of draft.jobs) {
+        if (
+          !job.onFilesChanged ||
+          picomatch(job.onFilesChanged)(filepath) ||
+          hasInvalidatedAJob
+        ) {
+          job.status = 'pending';
+          hasInvalidatedAJob = true;
+        }
+      }
+    });
+  })
 }));
 
 module.exports = pipelineStore;

@@ -4,15 +4,20 @@ files('./');
 ignore('node_modules/**/*');
 
 job('dependencies', () => {
-  //onFilesChanged('package*.json');
+  onFilesChanged('package*.json');
   step('npm ci');
 });
 
-// parallel('e2e', () => {
+job('lint', () => {
+  step('echo "LINT HERE"');
+});
+
+// group('e2e', () => {
 //   job('e2e:a', () => {
-//     step('npm run e2e:test:a')
+//     //step('npm run e2e:test:a');
+
 //   });
 //   job('e2e:b', () => {
-//     step('npm run e2e:test:b');
+//     //step('npm run e2e:test:b');
 //   });
 // });
