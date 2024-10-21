@@ -7,6 +7,7 @@ const chokidar = require('chokidar'); // Add chokidar library
 const fs = require('fs'); // Add fs module
 const { exec } = require('child_process');
 const debounce = require('lodash.debounce');
+const picomatch = require('picomatch');
 
 // Pipeline definition functions
 global.image = (imageName) => {
@@ -107,23 +108,30 @@ async function runPipeline(executor) {
 }
 
 async function runJob(executor, job) {
+  const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
+  if (!fs.existsSync(logFilePath)) {
+    await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
+  }
+  const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
+
   console.log(`Running job: ${job.name}`);
   pipelineStore.getState().setStatus('running');
   let exitCode;
   for (const step of job.steps) {
     try {
       exitCode = await executor.runStep(step);
+      logStream.write(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
       if (exitCode !== 0) {
-        console.error(`Step failed with exit code: ${exitCode}`);
+        logStream.write(`Step failed with exit code: ${exitCode}\n`); // Log failure
         break;
       }
     } catch (error) {
-      console.error(`Error executing step: ${step.command}`);
-      console.error(`Error details: ${error}`);
+      logStream.write(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
       exitCode = 1;
       break;
     }
   }
+  logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? 'passed' : 'failed');
   const nextJob = pipelineStore.getState().getNextJob();
   if (nextJob) {
@@ -177,7 +185,18 @@ if (require.main === module) {
 
       // Initial run
       runAndWatchPipeline();
-      const watcher = chokidar.watch(pipelineStore.getState().files, { persistent: true });
+      const watcher = chokidar.watch(pipelineStore.getState().files, {
+        persistent: true,
+        ignored: function (filepath) {
+          const ignorePatterns = pipelineStore.getState().ignorePatterns;
+          for (const pattern of ignorePatterns) {
+            if (picomatch(pattern)(filepath)) {
+              return true;
+            }
+          }
+        }
+      });
+      
       watcher.on('change', async (filePath) => {
         await executor.stopExec(); // TODO: Only stop if the current running job was invalidated
         restartJobs(executor, filePath);

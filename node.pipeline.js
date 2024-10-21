@@ -2,6 +2,7 @@ image('node:20');
 
 files('./');
 ignore('node_modules/**/*');
+ignore('ci-output/**/*');
 
 job('dependencies', () => {
   onFilesChanged('package*.json');
