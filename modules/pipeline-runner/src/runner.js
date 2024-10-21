@@ -109,9 +109,13 @@ async function runPipeline(executor) {
 
 async function runJob(executor, job) {
   const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
-  if (!fs.existsSync(logFilePath)) {
+  if (fs.existsSync(logFilePath)) {
+    await fs.promises.rm(logFilePath);
+  }
+  if (!fs.existsSync(path.dirname(logFilePath))) {
     await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
   }
+  pipelineStore.getState().setJobFilePath(job, logFilePath);
   const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
 
   console.log(`Running job: ${job.name}`);
@@ -119,14 +123,14 @@ async function runJob(executor, job) {
   let exitCode;
   for (const step of job.steps) {
     try {
-      exitCode = await executor.runStep(step);
-      logStream.write(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
+      exitCode = await executor.runStep(step, logStream);
+      console.log(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
       if (exitCode !== 0) {
-        logStream.write(`Step failed with exit code: ${exitCode}\n`); // Log failure
+        console.log(`Step failed with exit code: ${exitCode}\n`); // Log failure
         break;
       }
     } catch (error) {
-      logStream.write(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
+      console.log(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
       exitCode = 1;
       break;
     }

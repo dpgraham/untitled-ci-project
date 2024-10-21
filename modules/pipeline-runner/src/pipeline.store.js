@@ -34,10 +34,22 @@ const pipelineStore = create((set) => ({
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
   setJobStatus: (job, status) => set((state) => {
-    const updatedJobs = state.jobs.map(otherJob => 
-      otherJob.name === job.name ? { ...job, status } : otherJob // Update status if name matches
-    );
-    return { jobs: updatedJobs };
+    return produce(state, (draft) => {
+      for (const checkJob of draft.jobs) {
+        if (checkJob.name === job.name) {
+          checkJob.status = status;
+        }
+      }
+    });
+  }),
+  setJobFilePath: (job, filePath) => set((state) => {
+    return produce(state, (draft) => {
+      for (const checkJob of draft.jobs) {
+        if (checkJob.name === job.name) {
+          checkJob.filePath = filePath;
+        }
+      }
+    });
   }),
   getNextJob: () => {
     return pipelineStore.getState().jobs.find(job => job.status === 'pending'); // Find the first pending job

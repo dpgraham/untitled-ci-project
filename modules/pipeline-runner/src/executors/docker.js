@@ -29,7 +29,7 @@ class DockerExecutor {
     }
   }
 
-  async runStep(step) {
+  async runStep(step, fsStream) {
     console.log(`Executing step: ${step.command}`);
     const dockerContainer = this.docker.getContainer(this.container.getId());
     const execCommand = ["sh", "-c", step.command];
@@ -46,7 +46,7 @@ class DockerExecutor {
 
     const stream = await exec.start({ hijack: true, stdin: false });
 
-    this.docker.modem.demuxStream(stream, process.stdout, process.stderr);
+    stream.pipe(fsStream);
     
     return new Promise((resolve, reject) => {
       stream.on("end", async () => {
