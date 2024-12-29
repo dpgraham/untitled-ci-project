@@ -1,6 +1,6 @@
 image('node:20');
 
-files('./');
+files('**/*'); // TODO: Make **/* the default
 ignore('node_modules/**/*');
 ignore('ci-output/**/*');
 
@@ -10,7 +10,7 @@ job('dependencies', () => {
 });
 
 job('lint', () => {
-  step('echo "LINT HERE"');
+  step('npx eslint **/*.js');
 });
 
 // group('e2e', () => {

@@ -22,7 +22,7 @@ const pipelineStore = create((set) => ({
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
   reset: () => set((state) => ({
     ...state,
-    jobs: state.jobs.map(job => ({ ...job, status: 'pending' })), // Update job statuses to 'pending'
+    jobs: state.jobs.map((job) => ({ ...job, status: 'pending' })), // Update job statuses to 'pending'
   })),
   setJobExitCode: (jobIndex, exitCode) => set((state) => {
     const updatedJobs = [...state.jobs];
@@ -33,42 +33,36 @@ const pipelineStore = create((set) => ({
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
-  setJobStatus: (job, status) => set((state) => {
-    return produce(state, (draft) => {
-      for (const checkJob of draft.jobs) {
-        if (checkJob.name === job.name) {
-          checkJob.status = status;
-        }
+  setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.status = status;
       }
-    });
-  }),
-  setJobFilePath: (job, filePath) => set((state) => {
-    return produce(state, (draft) => {
-      for (const checkJob of draft.jobs) {
-        if (checkJob.name === job.name) {
-          checkJob.filePath = filePath;
-        }
+    }
+  })),
+  setJobFilePath: (job, filePath) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.filePath = filePath;
       }
-    });
-  }),
-  getNextJob: () => {
-    return pipelineStore.getState().jobs.find(job => job.status === 'pending'); // Find the first pending job
-  },
-  resetJobs: (filepath) => set((state) => {
-    return produce(state, draft => {
-      let hasInvalidatedAJob = false;
-      for (const job of draft.jobs) {
-        if (
-          !job.onFilesChanged ||
+    }
+  })),
+  getNextJob: () =>
+    pipelineStore.getState().jobs.find((job) => job.status === 'pending') // Find the first pending job
+  ,
+  resetJobs: (filepath) => set((state) => produce(state, (draft) => {
+    let hasInvalidatedAJob = false;
+    for (const job of draft.jobs) {
+      if (
+        !job.onFilesChanged ||
           picomatch(job.onFilesChanged)(filepath) ||
           hasInvalidatedAJob
-        ) {
-          job.status = 'pending';
-          hasInvalidatedAJob = true;
-        }
+      ) {
+        job.status = 'pending';
+        hasInvalidatedAJob = true;
       }
-    });
-  })
+    }
+  }))
 }));
 
 module.exports = pipelineStore;

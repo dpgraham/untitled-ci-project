@@ -52,7 +52,7 @@ global.onFilesChanged = (pattern) => {
   pipelineStore.setState({ jobs });
 };
 
-async function buildPipeline(pipelineFile) {
+async function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
   pipelineStore.getState().setPipelineFile(pipelineFile);
@@ -77,16 +77,12 @@ async function buildPipeline(pipelineFile) {
 
     // Copy files matching the glob pattern to the container
     if (files) {
-      const destPath = '/app';
-      const files = fs.readdirSync(pipelineDir, { withFileTypes: true })
-        .flatMap(dirent => {
-          const res = path.resolve(pipelineDir, dirent.name);
-          return dirent.isDirectory() ? 
-            fs.readdirSync(res, { withFileTypes: true }).map(innerDirent => path.join(res, innerDirent.name)) : 
-            res;
-        })
-        .filter(file => !ignorePatterns.some(pattern => file.includes(pattern)) && fs.statSync(file).isFile());
-      const filesToCopy = files.map(file => ({
+      const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
+      let filesArr = glob.sync(files, { cwd: pipelineDir, dot: true });
+      filesArr = filesArr.filter((file) => {
+        return !ignorePatterns.some((pattern) => file.includes(pattern)) && fs.statSync(file).isFile();
+      });
+      const filesToCopy = filesArr.map((file) => ({
         source: path.resolve(pipelineDir, file),
         target: path.posix.join(destPath, path.relative(pipelineDir, file)),
       }));
@@ -99,7 +95,7 @@ async function buildPipeline(pipelineFile) {
   }
 }
 
-async function runPipeline(executor) {
+async function runPipeline (executor) {
   const nextJob = pipelineStore.getState().getNextJob();
   runJob(executor, nextJob);
 
@@ -107,7 +103,7 @@ async function runPipeline(executor) {
   return executor;
 }
 
-async function runJob(executor, job) {
+async function runJob (executor, job) {
   const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath);
@@ -152,10 +148,11 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
 // TODO: this should be selective based on files changed
-async function restartJobs(executor, filePath) {
+async function restartJobs (executor, filePath) {
   // TODO: Make it so it only triggers if the filepath contents changed, not just CTRL+S
   pipelineStore.getState().resetJobs(filePath);
   const nextJob = pipelineStore.getState().getNextJob();
+  console.log(`Re-running from job '${nextJob.name}'`);
   debouncedRunJob(executor, nextJob);
 }
 
@@ -191,7 +188,7 @@ if (require.main === module) {
       runAndWatchPipeline();
       const watcher = chokidar.watch(pipelineStore.getState().files, {
         persistent: true,
-        ignored: function (filepath) {
+        ignored (filepath) {
           const ignorePatterns = pipelineStore.getState().ignorePatterns;
           for (const pattern of ignorePatterns) {
             if (picomatch(pattern)(filepath)) {
@@ -200,12 +197,12 @@ if (require.main === module) {
           }
         }
       });
-      
+
       watcher.on('change', async (filePath) => {
         await executor.stopExec(); // TODO: Only stop if the current running job was invalidated
         restartJobs(executor, filePath);
       });
-      
+
       // Set up readline interface for user input
       const readline = require('readline').createInterface({
         input: process.stdin,

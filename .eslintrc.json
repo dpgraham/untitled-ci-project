@@ -1,0 +1,15 @@
+{
+    "extends": "eslint-config-appium",
+    "env": {
+        "browser": true,
+        "node": true,
+        "es6": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module"
+    },
+    "rules": {
+        // Add any custom rules here
+    }
+}
