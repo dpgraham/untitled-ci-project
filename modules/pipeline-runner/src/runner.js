@@ -137,9 +137,15 @@ async function runJob (executor, job) {
   if (nextJob) {
     runJob(executor, nextJob);
   } else {
-    console.log('pipeline is complete');
+    if (exitCode === 0) {
+      console.log('Pipeline is passing');
+    } else {
+      console.log('Pipeline is failing');
+    }
+    if (executor.exitOnDone) {
+      process.exit(exitCode);
+    }
     console.log('Press "q" and Enter to quit the pipeline.');
-    // TODO: check and set the pipeline's total status here
   }
 }
 
@@ -147,7 +153,6 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
 const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
-// TODO: this should be selective based on files changed
 async function restartJobs (executor, filePath) {
   // TODO: Make it so it only triggers if the filepath contents changed, not just CTRL+S
   pipelineStore.getState().resetJobs(filePath);
@@ -164,13 +169,14 @@ if (require.main === module) {
     .name('pipeline-runner')
     .description('Run a pipeline')
     .argument('<file>', 'Path to the pipeline file')
+    .option('--ci', 'Exit immediately when the job is done')
     .action(async (file) => {
       const pipelineFile = path.resolve(process.cwd(), file);
       let executor;
 
       const runAndWatchPipeline = async () => {
         try {
-          runPipeline(executor);
+          await runPipeline(executor);
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           if (executor) {
@@ -181,6 +187,7 @@ if (require.main === module) {
       };
 
       executor = await buildPipeline(pipelineFile);
+      executor.exitOnDone = program.opts().ci; // TODO: Make CI set to true when process.env.CI is true
 
       // Watch for file changes
 
