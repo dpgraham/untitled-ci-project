@@ -50,19 +50,24 @@ const pipelineStore = create((set) => ({
   getNextJob: () =>
     pipelineStore.getState().jobs.find((job) => job.status === 'pending') // Find the first pending job
   ,
-  resetJobs: (filepath) => set((state) => produce(state, (draft) => {
+  resetJobs: (filepath) => {
     let hasInvalidatedAJob = false;
-    for (const job of draft.jobs) {
-      if (
-        !job.onFilesChanged ||
-          picomatch(job.onFilesChanged)(filepath) ||
-          hasInvalidatedAJob
-      ) {
-        job.status = 'pending';
-        hasInvalidatedAJob = true;
+    set((state) => produce(state, (draft) => {
+      for (const job of draft.jobs) {
+        if (
+          !job.onFilesChanged ||
+            picomatch(job.onFilesChanged)(filepath) ||
+            hasInvalidatedAJob
+        ) {
+          if (job.status !== 'pending') {
+            job.status = 'pending';
+            hasInvalidatedAJob = true;
+          }
+        }
       }
-    }
-  }))
+    }));
+    return hasInvalidatedAJob;
+  }
 }));
 
 module.exports = pipelineStore;

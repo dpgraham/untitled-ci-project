@@ -48,6 +48,7 @@ class DockerExecutor {
 
     stream.on('data', (chunk) => {
       // Log the chunk to the console
+      // TODO: Only log this if verbosity was set
       console.log('Received chunk:', chunk.toString()); // Convert to string if necessary
       fsStream.write(chunk);
     });

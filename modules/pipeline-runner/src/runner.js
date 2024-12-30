@@ -162,10 +162,12 @@ const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
 async function restartJobs (executor, filePath) {
   // TODO: Make it so it only triggers if the filepath contents changed, not just CTRL+S
-  pipelineStore.getState().resetJobs(filePath);
-  const nextJob = pipelineStore.getState().getNextJob();
-  console.log(`Re-running from job '${nextJob.name}'`);
-  debouncedRunJob(executor, nextJob);
+  const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
+  if (hasInvalidatedAJob) {
+    const nextJob = pipelineStore.getState().getNextJob();
+    console.log(`Re-running from job '${nextJob.name}'`);
+    debouncedRunJob(executor, nextJob);
+  }
 }
 
 // Main execution
@@ -225,6 +227,8 @@ if (require.main === module) {
         ])
         restartJobs(executor, filePath);
       });
+
+      // TODO: add watcher.on('unlink') here too
 
       // Set up readline interface for user input
       const readline = require('readline').createInterface({
