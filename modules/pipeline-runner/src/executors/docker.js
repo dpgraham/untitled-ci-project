@@ -1,6 +1,6 @@
 const { GenericContainer } = require('testcontainers');
 const Docker = require('dockerode');
-const path = require('path');
+const slash = require('slash');
 
 class DockerExecutor {
   constructor () {
@@ -23,9 +23,28 @@ class DockerExecutor {
   async copyFiles (files) {
     for (const file of files) {
       await this.container.copyFilesToContainer([{
-        source: file.source,
-        target: file.target,
+        source: slash(file.source),
+        target: slash(file.target),
       }]);
+    }
+  }
+
+  async deleteFiles (files) {
+    const dockerContainer = this.docker.getContainer(this.container.getId());
+    for (const file of files) {
+      const exec = await dockerContainer.exec({
+        Cmd: ['rm', slash(file.target)], // Command to delete the file
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      const stream = await exec.start({ hijack: true, stdin: false });
+      await new Promise((resolve, reject) => {
+        stream.on('end', async () => {
+          const execInspect = await exec.inspect();
+          const exitCode = execInspect.ExitCode;
+          if (exitCode === 0) { resolve(exitCode); } else { reject(exitCode); }
+        });
+      });
     }
   }
 

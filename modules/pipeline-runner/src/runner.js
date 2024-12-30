@@ -1,13 +1,12 @@
 const path = require('path');
-const glob = require('glob');
 const DockerExecutor = require('./executors/docker');
 const pipelineStore = require('./pipeline.store');
 const { Command } = require('commander');
-const chokidar = require('chokidar'); // Add chokidar library
-const fs = require('fs'); // Add fs module
-const { exec } = require('child_process');
+const chokidar = require('chokidar');
+const fs = require('fs');
 const debounce = require('lodash.debounce');
 const picomatch = require('picomatch');
+const { getFiles } = require('./utils');
 
 // Pipeline definition functions
 global.image = (imageName) => {
@@ -78,7 +77,7 @@ async function buildPipeline (pipelineFile) {
     // Copy files matching the glob pattern to the container
     if (files) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
-      let filesArr = glob.sync(files, { cwd: pipelineDir, dot: true });
+      let filesArr = getFiles(files, pipelineDir);
       filesArr = filesArr.filter((file) => {
         return !ignorePatterns.some((pattern) => file.includes(pattern)) && fs.statSync(file).isFile();
       });
@@ -106,6 +105,7 @@ async function runPipeline (executor) {
 const logStreams = {};
 
 async function runJob (executor, job) {
+  // TODO: make "ci-output" configurable
   const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath);
@@ -123,6 +123,7 @@ async function runJob (executor, job) {
 
   console.log(`Running job: ${job.name}`);
   pipelineStore.getState().setStatus('running');
+  pipelineStore.getState().setJobStatus(job, 'running');
   let exitCode;
   for (const step of job.steps) {
     try {
@@ -140,6 +141,7 @@ async function runJob (executor, job) {
   }
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? 'passed' : 'failed');
+  // TODO: pipelinStore.getState().setJobResult(job, exitCode === 0 ? 'passed': 'failed');
   const nextJob = pipelineStore.getState().getNextJob();
   if (nextJob) {
     runJob(executor, nextJob);
@@ -185,6 +187,14 @@ if (require.main === module) {
 
       const runAndWatchPipeline = async () => {
         try {
+          // TODO: Make "ci-output" configurable
+          const logDir = 'ci-output/jobs';
+          if (fs.existsSync(logDir)) {
+            const files = fs.readdirSync(logDir);
+            for (const file of files) {
+              await fs.promises.rm(path.join(logDir, file), { recursive: true, force: true });
+            }
+          }
           await runPipeline(executor);
         } catch (error) {
           console.error('Pipeline execution failed:', error);
@@ -202,7 +212,8 @@ if (require.main === module) {
 
       // Initial run
       runAndWatchPipeline();
-      const filesArr = glob.sync(pipelineStore.getState().files);
+      const pipelineDir = path.dirname(pipelineFile); 
+      const filesArr = getFiles(pipelineStore.getState().files, pipelineDir);
       const watcher = chokidar.watch(filesArr, {
         persistent: true,
         ignored (filepath) {
@@ -217,18 +228,32 @@ if (require.main === module) {
 
       watcher.on('change', async (filePath) => {
         // TODO: have it delete files here too
-        await executor.stopExec(); // TODO: Only stop if the current running job was invalidated
+        await executor.stopExec();
+        filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
           { 
             source: path.join(path.dirname(pipelineFile), filePath),
             // TODO: Change /app to not hardcoded
-            target: path.posix.join('/app', path.relative(path.dirname(pipelineFile), file)),
+            target: path.posix.join('/app', path.posix.normalize(filePath)),
           },
         ])
         restartJobs(executor, filePath);
       });
 
-      // TODO: add watcher.on('unlink') here too
+      // TODO: Handle case where a file is restored
+      // TODO: Move all "path.posix" into docker.js
+
+      // Add event listener for deleted files
+      watcher.on('unlink', async (filePath) => {
+        filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
+        await executor.deleteFiles([{
+          // TODO: Change /app to not hardcoded
+          target: path.posix.join('/app', path.posix.normalize(filePath)),
+        }])
+        // Handle the deletion of the file (e.g., restart jobs or update state)
+        await executor.stopExec();
+        restartJobs(executor, filePath);
+      });
 
       // Set up readline interface for user input
       const readline = require('readline').createInterface({

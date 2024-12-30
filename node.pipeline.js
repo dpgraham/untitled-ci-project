@@ -1,7 +1,9 @@
 image('node:20');
 
 files('**/*'); // TODO: Make **/* the default
+// TODO: Investigate why "node_modules" isn't being excluded from copying
 ignore('node_modules/**/*');
+// TODO: This shouldn't be required to do
 ignore('ci-output/**/*');
 
 job('dependencies', () => {
