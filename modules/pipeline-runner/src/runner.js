@@ -103,6 +103,8 @@ async function runPipeline (executor) {
   return executor;
 }
 
+const logStreams = {};
+
 async function runJob (executor, job) {
   const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
   if (fs.existsSync(logFilePath)) {
@@ -112,7 +114,12 @@ async function runJob (executor, job) {
     await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
   }
   pipelineStore.getState().setJobFilePath(job, logFilePath);
+  if (logStreams[logFilePath]) {
+    logStreams[logFilePath].end();
+    delete logStreams[logFilePath];
+  }
   const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
+  logStreams[logFilePath] = logStream;
 
   console.log(`Running job: ${job.name}`);
   pipelineStore.getState().setStatus('running');
@@ -193,7 +200,8 @@ if (require.main === module) {
 
       // Initial run
       runAndWatchPipeline();
-      const watcher = chokidar.watch(pipelineStore.getState().files, {
+      const filesArr = glob.sync(pipelineStore.getState().files);
+      const watcher = chokidar.watch(filesArr, {
         persistent: true,
         ignored (filepath) {
           const ignorePatterns = pipelineStore.getState().ignorePatterns;
@@ -206,7 +214,15 @@ if (require.main === module) {
       });
 
       watcher.on('change', async (filePath) => {
+        // TODO: have it delete files here too
         await executor.stopExec(); // TODO: Only stop if the current running job was invalidated
+        await executor.copyFiles([
+          { 
+            source: path.join(path.dirname(pipelineFile), filePath),
+            // TODO: Change /app to not hardcoded
+            target: path.posix.join('/app', path.relative(path.dirname(pipelineFile), file)),
+          },
+        ])
         restartJobs(executor, filePath);
       });
 

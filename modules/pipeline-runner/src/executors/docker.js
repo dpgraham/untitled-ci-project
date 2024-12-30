@@ -50,7 +50,7 @@ class DockerExecutor {
       // Log the chunk to the console
       console.log('Received chunk:', chunk.toString()); // Convert to string if necessary
       fsStream.write(chunk);
-  });
+    });
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
