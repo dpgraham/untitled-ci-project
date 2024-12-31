@@ -51,6 +51,19 @@ global.onFilesChanged = (pattern) => {
   pipelineStore.setState({ jobs });
 };
 
+global.group = (name) => {
+  const state = pipelineStore.getState();
+  const jobs = state.jobs;
+  if (jobs.length === 0) {
+    throw new Error('onFilesChanged cannot be set outside of a job');
+  }
+  const currentJob = jobs[jobs.length - 1];
+  currentJob.group = name;
+  pipelineStore.setState({ jobs });
+};
+
+// TODO: Add something here to sort the jobs so groups stay together
+
 async function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
@@ -58,6 +71,9 @@ async function buildPipeline (pipelineFile) {
 
   // Load and execute the pipeline definition
   require(pipelineFile);
+
+  // Sort the jobs based on their grouping
+  pipelineStore.getState().sortJobs();
 
   const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
 
@@ -79,7 +95,8 @@ async function buildPipeline (pipelineFile) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir);
       filesArr = filesArr.filter((file) => {
-        return !ignorePatterns.some((pattern) => file.includes(pattern)) && fs.statSync(file).isFile();
+        // TODO: Fix picomatch here
+        return !ignorePatterns.some((pattern) => picomatch(pattern)(file)) && fs.statSync(file).isFile();
       });
       const filesToCopy = filesArr.map((file) => ({
         source: path.resolve(pipelineDir, file),
@@ -95,6 +112,7 @@ async function buildPipeline (pipelineFile) {
 }
 
 async function runPipeline (executor) {
+  pipelineStore.getState().enqueueJobs();
   const nextJob = pipelineStore.getState().getNextJob();
   runJob(executor, nextJob);
 
@@ -142,6 +160,7 @@ async function runJob (executor, job) {
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? 'passed' : 'failed');
   // TODO: pipelinStore.getState().setJobResult(job, exitCode === 0 ? 'passed': 'failed');
+  pipelineStore.getState().enqueueJobs();
   const nextJob = pipelineStore.getState().getNextJob();
   if (nextJob) {
     runJob(executor, nextJob);
@@ -166,6 +185,7 @@ async function restartJobs (executor, filePath) {
   // TODO: Make it so it only triggers if the filepath contents changed, not just CTRL+S
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
+    pipelineStore.getState().enqueueJobs();
     const nextJob = pipelineStore.getState().getNextJob();
     console.log(`Re-running from job '${nextJob.name}'`);
     debouncedRunJob(executor, nextJob);
