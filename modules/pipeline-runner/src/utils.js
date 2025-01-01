@@ -1,8 +1,9 @@
 const fs = require('fs');
 const glob = require('glob');
 const path = require('path');
+const picomatch = require('picomatch');
 
-function getFiles(files, rootDir) {
+function getFiles(files, rootDir, ignorePatterns) {
     let filesArr;
     try {
     if (fs.statSync(path.join(rootDir, files)).isDirectory()) {
@@ -16,6 +17,15 @@ function getFiles(files, rootDir) {
         // If 'files' is a glob pattern, use glob.sync
         filesArr = glob.sync(files, { cwd: rootDir, dot: true });
     }
+
+    filesArr = filesArr.filter((filePath) => {
+        for (const ignorePattern of ignorePatterns) {
+            if (picomatch(ignorePattern, { dot: true })(filePath)) {
+                return false;
+            }
+        }
+        return true;
+    });
 
     return filesArr;
 }

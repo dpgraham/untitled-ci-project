@@ -93,10 +93,10 @@ async function buildPipeline (pipelineFile) {
     // Copy files matching the glob pattern to the container
     if (files) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
-      let filesArr = getFiles(files, pipelineDir);
+      let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       filesArr = filesArr.filter((file) => {
         // TODO: Fix picomatch here
-        return !ignorePatterns.some((pattern) => picomatch(pattern)(file)) && fs.statSync(file).isFile();
+        return !ignorePatterns.some((pattern) => picomatch(pattern, { dot: true })(file)) && fs.statSync(file).isFile();
       });
       const filesToCopy = filesArr.map((file) => ({
         source: path.resolve(pipelineDir, file),
@@ -182,7 +182,6 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
 async function restartJobs (executor, filePath) {
-  // TODO: Make it so it only triggers if the filepath contents changed, not just CTRL+S
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     pipelineStore.getState().enqueueJobs();
@@ -233,13 +232,13 @@ if (require.main === module) {
       // Initial run
       runAndWatchPipeline();
       const pipelineDir = path.dirname(pipelineFile); 
-      const filesArr = getFiles(pipelineStore.getState().files, pipelineDir);
+      const ignorePatterns = pipelineStore.getState().ignorePatterns;
+      const filesArr = getFiles(pipelineStore.getState().files, pipelineDir, ignorePatterns);
       const watcher = chokidar.watch(filesArr, {
         persistent: true,
         ignored (filepath) {
-          const ignorePatterns = pipelineStore.getState().ignorePatterns;
           for (const pattern of ignorePatterns) {
-            if (picomatch(pattern)(filepath)) {
+            if (picomatch(pattern, { dot: true })(filepath)) {
               return true;
             }
           }

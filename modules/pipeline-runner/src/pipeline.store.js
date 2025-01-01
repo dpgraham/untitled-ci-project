@@ -87,7 +87,7 @@ const pipelineStore = create((set) => ({
       for (const job of draft.jobs) {
         if (
           !job.onFilesChanged ||
-            picomatch(job.onFilesChanged)(filepath) ||
+            picomatch(job.onFilesChanged, { dot: true })(filepath) ||
             hasInvalidatedAJob
         ) {
           if (job.status !== 'pending') {
