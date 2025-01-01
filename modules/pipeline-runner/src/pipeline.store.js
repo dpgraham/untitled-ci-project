@@ -2,23 +2,33 @@ const { create } = require('zustand');
 const { produce } = require('immer');
 const picomatch = require('picomatch');
 
+const JOB_STATUS = {
+  PENDING: 'pending',
+  QUEUED: 'queued',
+  RUNNING: 'running',
+  PASSED: 'passed',
+  FAILED: 'failed',
+};
+
 const pipelineStore = create((set) => ({
   jobs: [],
   image: null,
   files: './',
   ignorePatterns: [],
-  status: 'pending',
+  status: JOB_STATUS.PENDING,
   result: 'in progress',
+  maxConcurrency: 4, // TODO: Change this to 2 once the container cloning is ready
+  concurrency: 0,
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
     for (const job of draft.jobs) {
-      if (job.status === 'pending') {
-        job.status = 'queued';
+      if (job.status === JOB_STATUS.PENDING) {
+        job.status = JOB_STATUS.QUEUED;
         group = job.group;
         if (!group) {break;}
       } else if (group) {
         if (group === job.group) {
-          job.status = 'queued';
+          job.status = JOB_STATUS.QUEUED;
         } else {
           break;
         }
@@ -53,13 +63,14 @@ const pipelineStore = create((set) => ({
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
   reset: () => set((state) => ({
     ...state,
-    jobs: state.jobs.map((job) => ({ ...job, status: 'pending' })), // Update job statuses to 'pending'
+    jobs: state.jobs.map((job) => ({ ...job, status: JOB_STATUS.PENDING })), // Update job statuses to JOB_STATUS.PENDING
   })),
   setJobExitCode: (jobIndex, exitCode) => set((state) => {
     const updatedJobs = [...state.jobs];
     updatedJobs[jobIndex] = { ...updatedJobs[jobIndex], exitCode };
     return { jobs: updatedJobs };
   }),
+  setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
@@ -67,6 +78,9 @@ const pipelineStore = create((set) => ({
   setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
+        if (checkJob.status === JOB_STATUS.RUNNING && status !== JOB_STATUS.RUNNING) {
+          draft.concurrency -= 1;
+        }
         checkJob.status = status;
       }
     }
@@ -78,9 +92,23 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
-  getNextJob: () =>
-    pipelineStore.getState().jobs.find((job) => job.status === 'queued') // Find the first queued job
-  ,
+  dequeueNextJobs: () => {
+    let jobs = [];
+    const state = pipelineStore.getState();
+    let { concurrency, maxConcurrency } = state;
+    while (concurrency < maxConcurrency) {
+      const nextJob = state.jobs.find((job) => job.status === JOB_STATUS.QUEUED); // Find the first queued job
+      if (nextJob) {
+        state.setJobStatus(nextJob, JOB_STATUS.RUNNING); // Set the status of the next job to JOB_STATUS.RUNNING
+        concurrency += 1;
+        jobs.push({ ...nextJob });
+      } else {
+        break;
+      }
+    }
+    set((state) => produce(state, (draft) => { draft.concurrency = concurrency; }));
+    return jobs;
+  },
   resetJobs: (filepath) => {
     let hasInvalidatedAJob = false;
     set((state) => produce(state, (draft) => {
@@ -90,8 +118,8 @@ const pipelineStore = create((set) => ({
             picomatch(job.onFilesChanged, { dot: true })(filepath) ||
             hasInvalidatedAJob
         ) {
-          if (job.status !== 'pending') {
-            job.status = 'pending';
+          if (job.status !== JOB_STATUS.PENDING) {
+            job.status = JOB_STATUS.PENDING;
             hasInvalidatedAJob = true;
           }
         }
@@ -102,3 +130,4 @@ const pipelineStore = create((set) => ({
 }));
 
 module.exports = pipelineStore;
+module.exports.JOB_STATUS = JOB_STATUS;

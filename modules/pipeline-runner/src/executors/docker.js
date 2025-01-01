@@ -67,8 +67,9 @@ class DockerExecutor {
 
     stream.on('data', (chunk) => {
       // Log the chunk to the console
-      // TODO: Only log this if verbosity was set
+      // TODO: Only log this if verbosity was set + change all console logs to use Winston
       console.log('Received chunk:', chunk.toString()); // Convert to string if necessary
+      // TODO: filter out illegal characters
       fsStream.write(chunk);
     });
 

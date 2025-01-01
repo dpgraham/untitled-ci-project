@@ -8,6 +8,8 @@ const debounce = require('lodash.debounce');
 const picomatch = require('picomatch');
 const { getFiles } = require('./utils');
 
+const { JOB_STATUS } = pipelineStore;
+
 // Pipeline definition functions
 global.image = (imageName) => {
   pipelineStore.getState().setImage(imageName);
@@ -16,7 +18,7 @@ global.image = (imageName) => {
 global.job = (name, fn) => {
   // TODO: Forbid duplicate names
   const jobDef = { name, steps: [], onFilesChanged: null }; // Add onFilesChanged attribute
-  pipelineStore.getState().addJob({...jobDef, status: 'pending'});
+  pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
   fn(jobDef);
 };
 
@@ -113,8 +115,10 @@ async function buildPipeline (pipelineFile) {
 
 function runPipeline (executor) {
   pipelineStore.getState().enqueueJobs();
-  const nextJob = pipelineStore.getState().getNextJob();
-  runJob(executor, nextJob);
+  const nextJobs = pipelineStore.getState().dequeueNextJobs();
+  for (const nextJob of nextJobs) {
+    runJob(executor, nextJob);
+  }
 
   // Return the executor so it can be stopped later
   return executor;
@@ -140,8 +144,6 @@ async function runJob (executor, job) {
   logStreams[logFilePath] = logStream;
 
   console.log(`Running job: ${job.name}`);
-  pipelineStore.getState().setStatus('running');
-  pipelineStore.getState().setJobStatus(job, 'running');
   let exitCode;
   for (const step of job.steps) {
     try {
@@ -158,13 +160,17 @@ async function runJob (executor, job) {
     }
   }
   logStream.end(); // Close the log stream
-  pipelineStore.getState().setJobStatus(job, exitCode === 0 ? 'passed' : 'failed');
-  // TODO: pipelinStore.getState().setJobResult(job, exitCode === 0 ? 'passed': 'failed');
+  pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
+  // TODO: pipelinStore.getState().setJobResult() <-- sets reason why job failed, if it did
   pipelineStore.getState().enqueueJobs();
-  const nextJob = pipelineStore.getState().getNextJob();
-  if (nextJob) {
-    runJob(executor, nextJob);
+  const nextJobs = pipelineStore.getState().dequeueNextJobs();
+  if (nextJobs.length > 0) {
+    for (const nextJob of nextJobs) {
+      runJob(executor, nextJob);
+    }
   } else {
+    // TODO: Make a function in pipeline.store.js that checks the whole status of the pipeline
+    // to see if it is passing or failing
     if (exitCode === 0) {
       console.log('Pipeline is passing');
     } else {
@@ -185,9 +191,11 @@ function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     pipelineStore.getState().enqueueJobs();
-    const nextJob = pipelineStore.getState().getNextJob();
-    console.log(`Re-running from job '${nextJob.name}'`);
-    debouncedRunJob(executor, nextJob);
+    const nextJobs = pipelineStore.getState().dequeueNextJobs();
+    for (const nextJob of nextJobs) {
+      console.log(`Re-running from job '${nextJob.name}'`);
+      debouncedRunJob(executor, nextJob);
+    }
   }
 }
 
@@ -200,6 +208,7 @@ if (require.main === module) {
     .description('Run a pipeline')
     .argument('<file>', 'Path to the pipeline file')
     .option('--ci', 'Exit immediately when the job is done')
+    // TODO: Add max-concurrency as an option here
     .action(async (file) => {
       const pipelineFile = path.resolve(process.cwd(), file);
       let executor;
