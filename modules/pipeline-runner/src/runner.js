@@ -94,10 +94,10 @@ async function buildPipeline (pipelineFile) {
     if (files) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
-      filesArr = filesArr.filter((file) => {
+      filesArr = filesArr.filter((file) =>
         // TODO: Fix picomatch here
-        return !ignorePatterns.some((pattern) => picomatch(pattern, { dot: true })(file)) && fs.statSync(file).isFile();
-      });
+        !ignorePatterns.some((pattern) => picomatch(pattern, { dot: true })(file)) && fs.statSync(file).isFile()
+      );
       const filesToCopy = filesArr.map((file) => ({
         source: path.resolve(pipelineDir, file),
         target: path.posix.join(destPath, path.relative(pipelineDir, file)),
@@ -111,7 +111,7 @@ async function buildPipeline (pipelineFile) {
   }
 }
 
-async function runPipeline (executor) {
+function runPipeline (executor) {
   pipelineStore.getState().enqueueJobs();
   const nextJob = pipelineStore.getState().getNextJob();
   runJob(executor, nextJob);
@@ -181,7 +181,7 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
 const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
-async function restartJobs (executor, filePath) {
+function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     pipelineStore.getState().enqueueJobs();
@@ -231,7 +231,7 @@ if (require.main === module) {
 
       // Initial run
       runAndWatchPipeline();
-      const pipelineDir = path.dirname(pipelineFile); 
+      const pipelineDir = path.dirname(pipelineFile);
       const ignorePatterns = pipelineStore.getState().ignorePatterns;
       const filesArr = getFiles(pipelineStore.getState().files, pipelineDir, ignorePatterns);
       const watcher = chokidar.watch(filesArr, {
@@ -250,12 +250,12 @@ if (require.main === module) {
         await executor.stopExec();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
-          { 
+          {
             source: path.join(path.dirname(pipelineFile), filePath),
             // TODO: Change /app to not hardcoded
             target: path.posix.join('/app', path.posix.normalize(filePath)),
           },
-        ])
+        ]);
         restartJobs(executor, filePath);
       });
 
@@ -268,7 +268,7 @@ if (require.main === module) {
         await executor.deleteFiles([{
           // TODO: Change /app to not hardcoded
           target: path.posix.join('/app', path.posix.normalize(filePath)),
-        }])
+        }]);
         // Handle the deletion of the file (e.g., restart jobs or update state)
         await executor.stopExec();
         restartJobs(executor, filePath);

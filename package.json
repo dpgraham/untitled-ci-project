@@ -5,8 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "test": "jest",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "author": "",
   "license": "ISC",

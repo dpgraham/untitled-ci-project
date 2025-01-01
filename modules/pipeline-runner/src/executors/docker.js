@@ -99,7 +99,7 @@ class DockerExecutor {
           });
 
           // Start the execution
-          const stream = await exec.start();
+          await exec.start();
         }
       }
     }

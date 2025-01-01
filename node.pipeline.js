@@ -12,7 +12,7 @@ job('dependencies', () => {
 });
 
 job('lint', () => {
-  step('npx eslint **/*.js');
+  step('npm run lint');
 });
 
 // group('e2e', () => {

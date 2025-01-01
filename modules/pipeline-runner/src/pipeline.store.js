@@ -15,7 +15,7 @@ const pipelineStore = create((set) => ({
       if (job.status === 'pending') {
         job.status = 'queued';
         group = job.group;
-        if (!group) break;
+        if (!group) {break;}
       } else if (group) {
         if (group === job.group) {
           job.status = 'queued';
