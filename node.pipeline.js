@@ -1,6 +1,5 @@
 image('node:20');
 
-files('**/*'); // TODO: Make **/* the default
 ignore('node_modules/**/*');
 ignore('.git/**/*');
 // TODO: This shouldn't be required to do

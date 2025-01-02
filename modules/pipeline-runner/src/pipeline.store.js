@@ -22,7 +22,7 @@ const pipelineStore = create((set) => ({
   files: './',
   ignorePatterns: [],
   result: 'in progress',
-  maxConcurrency: 4, // TODO: Change this to 2 once the container cloning is ready
+  maxConcurrency: 1, // TODO: Change this to 2 once the container cloning is ready
   concurrency: 0,
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
@@ -111,9 +111,9 @@ const pipelineStore = create((set) => ({
   })),
   dequeueNextJobs: () => {
     let jobs = [];
-    const state = pipelineStore.getState();
-    let { concurrency, maxConcurrency } = state;
+    let { concurrency, maxConcurrency } = pipelineStore.getState();
     while (concurrency < maxConcurrency) {
+      const state = pipelineStore.getState();
       const nextJob = state.jobs.find((job) => job.status === JOB_STATUS.QUEUED); // Find the first queued job
       if (nextJob) {
         state.setJobStatus(nextJob, JOB_STATUS.RUNNING); // Set the status of the next job to JOB_STATUS.RUNNING

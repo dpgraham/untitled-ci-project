@@ -8,8 +8,7 @@ function getFiles (files, rootDir, ignorePatterns) {
   try {
     if (fs.statSync(path.join(rootDir, files)).isDirectory()) {
       // If 'files' is a directory, read all files recursively
-      filesArr = fs.readdirSync(path.join(rootDir, files)).map((file) => path.join(files, file));
-      filesArr = filesArr.map((file) => path.resolve(rootDir, file));
+      filesArr = readFilesRecursively(path.join(rootDir, files));
     }
   } catch (e) {}
 
@@ -28,6 +27,23 @@ function getFiles (files, rootDir, ignorePatterns) {
   });
 
   return filesArr;
+}
+
+function readFilesRecursively (dir) {
+  let results = [];
+  const list = fs.readdirSync(dir);
+  list.forEach((file) => {
+    file = path.join(dir, file);
+    const stat = fs.statSync(file);
+    if (stat && stat.isDirectory()) {
+      // Recursively read files in subdirectories
+      results = results.concat(readFilesRecursively(file));
+    } else {
+      // Return relative path instead of absolute path
+      results.push(path.relative(process.cwd(), file));
+    }
+  });
+  return results;
 }
 
 module.exports = { getFiles };

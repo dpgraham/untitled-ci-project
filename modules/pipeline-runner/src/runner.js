@@ -240,6 +240,7 @@ if (require.main === module) {
       const pipelineDir = path.dirname(pipelineFile);
       const ignorePatterns = pipelineStore.getState().ignorePatterns;
       const filesArr = getFiles(pipelineStore.getState().files, pipelineDir, ignorePatterns);
+      // TODO: FIx bug where chokidar.watch is watching more than just "filesArr"
       const watcher = chokidar.watch(filesArr, {
         persistent: true,
         ignored (filepath) {
