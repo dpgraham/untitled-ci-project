@@ -10,12 +10,17 @@ const JOB_STATUS = {
   FAILED: 'failed',
 };
 
+const PIPELINE_STATUS = {
+  IN_PROGRESS: 'in progress',
+  PASSED: 'passed',
+  FAILED: 'failed',
+};
+
 const pipelineStore = create((set) => ({
   jobs: [],
   image: null,
   files: './',
   ignorePatterns: [],
-  status: JOB_STATUS.PENDING,
   result: 'in progress',
   maxConcurrency: 4, // TODO: Change this to 2 once the container cloning is ready
   concurrency: 0,
@@ -75,6 +80,18 @@ const pipelineStore = create((set) => ({
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
+  getPipelineStatus: () => {
+    const jobs = pipelineStore.getState().jobs;
+    const allPassed = jobs.every(job => job.status === JOB_STATUS.PASSED);
+    const anyFailed = jobs.some(job => job.status === JOB_STATUS.FAILED);
+    if (allPassed) {
+      return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
+    } else if (anyFailed) {
+      return PIPELINE_STATUS.FAILED; // Set to FAILED if at least one job is FAILED
+    } else {
+      return PIPELINE_STATUS.IN_PROGRESS; // Set to IN_PROGRESS otherwise
+    }
+  },
   setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
@@ -131,3 +148,4 @@ const pipelineStore = create((set) => ({
 
 module.exports = pipelineStore;
 module.exports.JOB_STATUS = JOB_STATUS;
+module.exports.PIPELINE_STATUS = PIPELINE_STATUS;

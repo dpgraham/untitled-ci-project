@@ -10,10 +10,10 @@
     "sourceType": "module"
   },
   "rules": {
-    // Add any custom rules here
-    "promise/no-native": "off",
     // TODO: Bring this back once use winston
-    "no-console": "off"
+    "no-console": "off",
+    // Add any custom rules here
+    "promise/no-native": "off"
   },
   "ignorePatterns": ["*.pipeline.js"]
 }

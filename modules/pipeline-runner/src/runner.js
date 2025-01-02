@@ -8,7 +8,7 @@ const debounce = require('lodash.debounce');
 const picomatch = require('picomatch');
 const { getFiles } = require('./utils');
 
-const { JOB_STATUS } = pipelineStore;
+const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
 // Pipeline definition functions
 global.image = (imageName) => {
@@ -96,10 +96,6 @@ async function buildPipeline (pipelineFile) {
     if (files) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
-      filesArr = filesArr.filter((file) =>
-        // TODO: Fix picomatch here
-        !ignorePatterns.some((pattern) => picomatch(pattern, { dot: true })(file)) && fs.statSync(file).isFile()
-      );
       const filesToCopy = filesArr.map((file) => ({
         source: path.resolve(pipelineDir, file),
         target: path.posix.join(destPath, path.relative(pipelineDir, file)),
@@ -161,6 +157,19 @@ async function runJob (executor, job) {
   }
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
+
+  const pipelineStatus = pipelineStore.getState().getPipelineStatus();
+
+  // if the pipeline is complete, log message and don't dequeue any more jobs
+  if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
+    console.log(`Pipeline is ${pipelineStatus === PIPELINE_STATUS.PASSED ? 'passing' : 'failing'}`);
+    if (executor.exitOnDone) {
+      process.exit(exitCode);
+    }
+    console.log('Press "q" and Enter to quit the pipeline.');
+    return;
+  }
+
   // TODO: pipelinStore.getState().setJobResult() <-- sets reason why job failed, if it did
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
@@ -168,18 +177,6 @@ async function runJob (executor, job) {
     for (const nextJob of nextJobs) {
       runJob(executor, nextJob);
     }
-  } else {
-    // TODO: Make a function in pipeline.store.js that checks the whole status of the pipeline
-    // to see if it is passing or failing
-    if (exitCode === 0) {
-      console.log('Pipeline is passing');
-    } else {
-      console.log('Pipeline is failing');
-    }
-    if (executor.exitOnDone) {
-      process.exit(exitCode);
-    }
-    console.log('Press "q" and Enter to quit the pipeline.');
   }
 }
 
