@@ -232,7 +232,7 @@ if (require.main === module) {
 
       executor = await buildPipeline(pipelineFile);
       executor.exitOnDone = program.opts().ci || process.env.CI;
-      
+
       // Watch for file changes
 
       // Initial run
