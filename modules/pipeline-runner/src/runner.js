@@ -231,7 +231,7 @@ if (require.main === module) {
       };
 
       executor = await buildPipeline(pipelineFile);
-      executor.exitOnDone = program.opts().ci; // TODO: Make CI set to true when process.env.CI is true
+      executor.exitOnDone = program.opts().ci || process.env.CI;
 
       // Watch for file changes
 
