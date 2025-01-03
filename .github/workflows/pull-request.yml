@@ -19,3 +19,8 @@ jobs:
         node-version: '20'
     - run: npm ci
     - run: node ./modules/pipeline-runner/src/runner.js ./node.pipeline.js
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-output
+        path: ci-output/
