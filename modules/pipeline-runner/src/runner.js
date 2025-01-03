@@ -97,8 +97,8 @@ async function buildPipeline (pipelineFile) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       const filesToCopy = filesArr.map((file) => ({
-        source: path.resolve(pipelineDir, file),
-        target: path.posix.join(destPath, path.relative(pipelineDir, file)),
+        source: file,
+        target: path.join(destPath, path.relative(pipelineDir, file)),
       }));
       await executor.copyFiles(filesToCopy);
     }
@@ -260,21 +260,20 @@ if (require.main === module) {
           {
             source: path.join(path.dirname(pipelineFile), filePath),
             // TODO: Change /app to not hardcoded
-            target: path.posix.join('/app', path.posix.normalize(filePath)),
+            target: path.join('/app', path.normalize(filePath)),
           },
         ]);
         restartJobs(executor, filePath);
       });
 
       // TODO: Handle case where a file is restored
-      // TODO: Move all "path.posix" into docker.js
 
       // Add event listener for deleted files
       watcher.on('unlink', async (filePath) => {
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.deleteFiles([{
           // TODO: Change /app to not hardcoded
-          target: path.posix.join('/app', path.posix.normalize(filePath)),
+          target: path.join('/app', path.normalize(filePath)),
         }]);
         // Handle the deletion of the file (e.g., restart jobs or update state)
         await executor.stopExec();
