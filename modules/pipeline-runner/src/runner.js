@@ -262,7 +262,7 @@ if (require.main === module) {
       // or tell user to close and re-run
 
       watcher.on('change', async (filePath) => {
-        // TODO: have it delete files here too        
+        // TODO: have it delete files here too
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
           {

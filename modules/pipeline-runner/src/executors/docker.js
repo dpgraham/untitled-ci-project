@@ -74,8 +74,8 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        const command = this.execCommands.find(cmd => cmd.execCommand === execCommand);
-        this.execCommands = this.execCommands.filter(cmd => cmd.execCommand !== execCommand);
+        const command = this.execCommands.find((cmd) => cmd.execCommand === execCommand);
+        this.execCommands = this.execCommands.filter((cmd) => cmd.execCommand !== execCommand);
         if (command.isKilled) {
           return;
         }

@@ -38,7 +38,7 @@ const pipelineStore = create((set) => ({
         job.status = JOB_STATUS.QUEUED;
         group = job.group;
         if (!group) {break;}
-      } 
+      }
     }
   })),
   sortJobs: () => set((state) => produce(state, (draft) => {
@@ -83,8 +83,8 @@ const pipelineStore = create((set) => ({
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
   getPipelineStatus: () => {
     const jobs = pipelineStore.getState().jobs;
-    const allPassed = jobs.every(job => job.status === JOB_STATUS.PASSED);
-    const anyFailed = jobs.some(job => job.status === JOB_STATUS.FAILED);
+    const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
+    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
     if (allPassed) {
       return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
     } else if (anyFailed) {
@@ -126,7 +126,7 @@ const pipelineStore = create((set) => ({
   },
   getRunningJobsCount: () => {
     const jobs = pipelineStore.getState().jobs;
-    return jobs.filter(job => job.status === JOB_STATUS.RUNNING).length;
+    return jobs.filter((job) => job.status === JOB_STATUS.RUNNING).length;
   },
   resetJobs: (filepath) => {
     let hasInvalidatedAJob = false;
