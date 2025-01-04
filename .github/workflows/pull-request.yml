@@ -17,6 +17,7 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: '20'
+    # TODO: eventually, this should just install the published version of this and use that
     - run: npm ci
     - run: node ./modules/pipeline-runner/src/runner.js ./node.pipeline.js
     - name: Upload Artifacts

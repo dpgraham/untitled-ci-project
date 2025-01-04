@@ -139,24 +139,26 @@ async function runJob (executor, job) {
   const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
   logStreams[logFilePath] = logStream;
 
-  console.log(`Running job: ${job.name}`);
-  let exitCode;
+  // group the steps into one array of commands
   const commands = [];
   for (const step of job.steps) {
     commands.push(step.command);
   }
 
+  let exitCode;
+  console.log(`Running job: ${job.name}`);
   try {
     exitCode = await executor.run(commands, logStream);
-    console.log(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
     if (exitCode !== 0) {
-      console.log(`Step failed with exit code: ${exitCode}\n`); // Log failure
+      console.log(`Job ${job.name} failed with exit code: ${exitCode}\n`); // Log failure
+    } else {
+      console.log(`Job ${job.name} passed.`);
     }
   } catch (error) {
-    console.log(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
+    console.log(`Error executing job: ${job.name}\nError details: ${error}\n`); // Log error
     exitCode = 1;
   }
-  
+
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
