@@ -97,8 +97,8 @@ async function buildPipeline (pipelineFile) {
       const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       const filesToCopy = filesArr.map((file) => ({
-        source: file,
-        target: path.join(destPath, path.relative(pipelineDir, file)),
+        source: path.join(pipelineDir, file),
+        target: path.join(destPath, file),
       }));
       await executor.copyFiles(filesToCopy);
     }
@@ -248,6 +248,7 @@ if (require.main === module) {
       // TODO: FIx bug where chokidar.watch is watching more than just "filesArr"
       const watcher = chokidar.watch(filesArr, {
         persistent: true,
+        cwd: pipelineDir,
         ignored (filepath) {
           for (const pattern of ignorePatterns) {
             if (picomatch(pattern, { dot: true })(filepath)) {
@@ -261,7 +262,7 @@ if (require.main === module) {
       // or tell user to close and re-run
 
       watcher.on('change', async (filePath) => {
-        // TODO: have it delete files here too
+        // TODO: have it delete files here too        
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
           {

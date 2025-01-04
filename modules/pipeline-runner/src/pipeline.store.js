@@ -26,17 +26,19 @@ const pipelineStore = create((set) => ({
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
     for (const job of draft.jobs) {
-      if (job.status === JOB_STATUS.PENDING) {
-        job.status = JOB_STATUS.QUEUED;
-        group = job.group;
-        if (!group) {break;}
+      if (job.status === JOB_STATUS.RUNNING) {
+        break;
       } else if (group) {
         if (group === job.group) {
           job.status = JOB_STATUS.QUEUED;
         } else {
           break;
         }
-      }
+      } else if (job.status === JOB_STATUS.PENDING) {
+        job.status = JOB_STATUS.QUEUED;
+        group = job.group;
+        if (!group) {break;}
+      } 
     }
   })),
   sortJobs: () => set((state) => produce(state, (draft) => {
