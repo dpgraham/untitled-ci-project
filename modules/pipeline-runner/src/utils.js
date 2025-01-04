@@ -10,9 +10,7 @@ function getFiles (files, rootDir, ignorePatterns) {
       // If 'files' is a directory, read all files recursively
       filesArr = readFilesRecursively(path.join(rootDir, files), rootDir);
     }
-  } catch (e) {
-    console.log(e);
-  }
+  } catch (e) {}
 
   if (!filesArr) {
     // If 'files' is a glob pattern, use glob.sync
