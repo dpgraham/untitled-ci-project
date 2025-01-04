@@ -48,10 +48,11 @@ class DockerExecutor {
     }
   }
 
-  async runStep (step, fsStream) {
-    console.log(`Executing step: ${step.command}`);
+  // TODO: make it clone container if it is a sibling container
+  async run (commands, fsStream) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
-    const execCommand = ['sh', '-c', step.command];
+
+    const execCommand = ['sh', '-c', commands.join('; ')];
     this.execCommand = execCommand;
 
     this.exec = await dockerContainer.exec({
