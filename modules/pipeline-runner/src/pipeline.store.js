@@ -23,20 +23,21 @@ const pipelineStore = create((set) => ({
   ignorePatterns: [],
   result: 'in progress',
   maxConcurrency: 1, // TODO: Change this to 2 once the container cloning is ready
-  concurrency: 0,
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
     for (const job of draft.jobs) {
-      if (job.status === JOB_STATUS.PENDING) {
-        job.status = JOB_STATUS.QUEUED;
-        group = job.group;
-        if (!group) {break;}
+      if (job.status === JOB_STATUS.RUNNING) {
+        break;
       } else if (group) {
         if (group === job.group) {
           job.status = JOB_STATUS.QUEUED;
         } else {
           break;
         }
+      } else if (job.status === JOB_STATUS.PENDING) {
+        job.status = JOB_STATUS.QUEUED;
+        group = job.group;
+        if (!group) {break;}
       }
     }
   })),
@@ -82,8 +83,8 @@ const pipelineStore = create((set) => ({
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
   getPipelineStatus: () => {
     const jobs = pipelineStore.getState().jobs;
-    const allPassed = jobs.every(job => job.status === JOB_STATUS.PASSED);
-    const anyFailed = jobs.some(job => job.status === JOB_STATUS.FAILED);
+    const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
+    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
     if (allPassed) {
       return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
     } else if (anyFailed) {
@@ -95,9 +96,6 @@ const pipelineStore = create((set) => ({
   setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
-        if (checkJob.status === JOB_STATUS.RUNNING && status !== JOB_STATUS.RUNNING) {
-          draft.concurrency -= 1;
-        }
         checkJob.status = status;
       }
     }
@@ -111,20 +109,24 @@ const pipelineStore = create((set) => ({
   })),
   dequeueNextJobs: () => {
     let jobs = [];
-    let { concurrency, maxConcurrency } = pipelineStore.getState();
+    let { maxConcurrency } = pipelineStore.getState();
+    let concurrency = pipelineStore.getState().getRunningJobsCount();
     while (concurrency < maxConcurrency) {
       const state = pipelineStore.getState();
       const nextJob = state.jobs.find((job) => job.status === JOB_STATUS.QUEUED); // Find the first queued job
       if (nextJob) {
         state.setJobStatus(nextJob, JOB_STATUS.RUNNING); // Set the status of the next job to JOB_STATUS.RUNNING
-        concurrency += 1;
+        concurrency++;
         jobs.push({ ...nextJob });
       } else {
         break;
       }
     }
-    set((state) => produce(state, (draft) => { draft.concurrency = concurrency; }));
     return jobs;
+  },
+  getRunningJobsCount: () => {
+    const jobs = pipelineStore.getState().jobs;
+    return jobs.filter((job) => job.status === JOB_STATUS.RUNNING).length;
   },
   resetJobs: (filepath) => {
     let hasInvalidatedAJob = false;
