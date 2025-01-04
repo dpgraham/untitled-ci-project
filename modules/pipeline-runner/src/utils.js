@@ -10,7 +10,9 @@ function getFiles (files, rootDir, ignorePatterns) {
       // If 'files' is a directory, read all files recursively
       filesArr = readFilesRecursively(path.join(rootDir, files), rootDir);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log(e);
+  }
 
   if (!filesArr) {
     // If 'files' is a glob pattern, use glob.sync
@@ -37,7 +39,7 @@ function readFilesRecursively (dir, rootDir) {
     const stat = fs.statSync(file);
     if (stat && stat.isDirectory()) {
       // Recursively read files in subdirectories
-      results = results.concat(readFilesRecursively(file));
+      results = results.concat(readFilesRecursively(file, rootDir));
     } else {
       // Return relative path instead of absolute path
       results.push(path.relative(rootDir, file));
