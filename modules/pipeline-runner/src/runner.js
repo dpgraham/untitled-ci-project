@@ -141,20 +141,22 @@ async function runJob (executor, job) {
 
   console.log(`Running job: ${job.name}`);
   let exitCode;
+  const commands = [];
   for (const step of job.steps) {
-    try {
-      exitCode = await executor.runStep(step, logStream);
-      console.log(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
-      if (exitCode !== 0) {
-        console.log(`Step failed with exit code: ${exitCode}\n`); // Log failure
-        break;
-      }
-    } catch (error) {
-      console.log(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
-      exitCode = 1;
-      break;
-    }
+    commands.push(step.command);
   }
+
+  try {
+    exitCode = await executor.run(commands, logStream);
+    console.log(`Step: ${step.command}\nExit Code: ${exitCode}\n`); // Log step output
+    if (exitCode !== 0) {
+      console.log(`Step failed with exit code: ${exitCode}\n`); // Log failure
+    }
+  } catch (error) {
+    console.log(`Error executing step: ${step.command}\nError details: ${error}\n`); // Log error
+    exitCode = 1;
+  }
+  
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
@@ -251,6 +253,9 @@ if (require.main === module) {
           }
         }
       });
+
+      // TODO: watch the pipeline file here too and have it restart the whole thing when it changes
+      // or tell user to close and re-run
 
       watcher.on('change', async (filePath) => {
         // TODO: have it delete files here too
