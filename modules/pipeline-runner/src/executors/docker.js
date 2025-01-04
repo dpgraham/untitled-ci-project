@@ -53,16 +53,14 @@ class DockerExecutor {
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     const execCommand = ['sh', '-c', commands.join('; ')];
-    this.execCommand = execCommand;
-
-    this.exec = await dockerContainer.exec({
+    this.execCommands = this.execCommands || [];
+    this.execCommands.push({ execCommand });
+    const exec = await dockerContainer.exec({
       Cmd: execCommand,
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
     });
-
-    const exec = this.exec;
 
     const stream = await exec.start({ hijack: true, stdin: false });
 
@@ -76,7 +74,11 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        this.execCommand = null;
+        const command = this.execCommands.find(cmd => cmd.execCommand === execCommand);
+        this.execCommands = this.execCommands.filter(cmd => cmd.execCommand !== execCommand);
+        if (command.isKilled) {
+          return;
+        }
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
         if (exitCode === 0) {resolve(exitCode);} else {reject(exitCode);}
@@ -90,8 +92,8 @@ class DockerExecutor {
     for (const process of processes) {
       for (let i = 0; i < process.length; i++) {
         const arg = process[i];
-
-        if (arg === this.execCommand?.join(' ')) {
+        const commandIndex = this.execCommands.findIndex((e) => arg === e.execCommand.join(' '));
+        if (this.execCommands[commandIndex]) {
           const pid = process[1];
           // Execute the kill command inside the container
           const exec = await dockerContainer.exec({
@@ -99,9 +101,10 @@ class DockerExecutor {
             AttachStdout: true,
             AttachStderr: true
           });
+          this.execCommands[commandIndex].isKilled = true;
 
           // Start the execution
-          await exec.start();
+          await exec.start({ hijack: true, stdin: false });
         }
       }
     }

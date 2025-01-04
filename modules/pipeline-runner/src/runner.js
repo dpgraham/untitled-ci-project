@@ -188,9 +188,10 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
 const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
 
-function restartJobs (executor, filePath) {
+async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
+    await executor.stopExec();
     pipelineStore.getState().enqueueJobs();
     const nextJobs = pipelineStore.getState().dequeueNextJobs();
     for (const nextJob of nextJobs) {
@@ -261,7 +262,6 @@ if (require.main === module) {
 
       watcher.on('change', async (filePath) => {
         // TODO: have it delete files here too
-        await executor.stopExec();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
           {
