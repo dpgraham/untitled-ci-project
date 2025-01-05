@@ -24,7 +24,7 @@ const pipelineStore = create((set) => ({
   result: 'in progress',
   maxConcurrency: 1, // TODO: Change this to 2 once the container cloning is ready
   outputDir: 'ci-output',
-  workDir: '/app',
+  workDir: '/ci',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
     for (const job of draft.jobs) {
