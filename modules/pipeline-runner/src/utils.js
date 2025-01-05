@@ -2,6 +2,7 @@ const fs = require('fs');
 const glob = require('glob');
 const path = require('path');
 const picomatch = require('picomatch');
+const slash = require('slash');
 
 function getFiles (files, rootDir, ignorePatterns) {
   let filesArr;
@@ -19,7 +20,8 @@ function getFiles (files, rootDir, ignorePatterns) {
 
   filesArr = filesArr.filter((filePath) => {
     for (const ignorePattern of ignorePatterns) {
-      if (picomatch(ignorePattern, { dot: true })(filePath)) {
+      if (picomatch(ignorePattern, { dot: true })(filePath) ||
+          slash(filePath).startsWith(slash(ignorePattern))) {
         return false;
       }
     }
