@@ -23,6 +23,8 @@ const pipelineStore = create((set) => ({
   ignorePatterns: [],
   result: 'in progress',
   maxConcurrency: 1, // TODO: Change this to 2 once the container cloning is ready
+  outputDir: 'ci-output',
+  workDir: '/app',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
     for (const job of draft.jobs) {
@@ -77,6 +79,13 @@ const pipelineStore = create((set) => ({
     return { jobs: updatedJobs };
   }),
   setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
+  setOutputDir: (outputDir) => set({ outputDir }),
+  setWorkDir: (workDir) => {
+    if (!workDir.startsWith('/')) {
+      workDir = `/${workDir}`;
+    }
+    set({ workDir });
+  },
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path

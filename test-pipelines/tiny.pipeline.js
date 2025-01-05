@@ -1,5 +1,6 @@
 image('alpine:latest');
 files('./tiny');
+concurrency(3);
 
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
