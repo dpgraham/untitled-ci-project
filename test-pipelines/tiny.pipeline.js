@@ -2,6 +2,8 @@ image('alpine:latest');
 files('./tiny');
 concurrency(3);
 
+ignore('./tiny/ignore/**/*');
+
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   step('cat ./tiny/a.log');

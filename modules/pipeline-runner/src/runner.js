@@ -5,8 +5,7 @@ const { Command } = require('commander');
 const chokidar = require('chokidar');
 const fs = require('fs');
 const debounce = require('lodash.debounce');
-const picomatch = require('picomatch');
-const { getFiles } = require('./utils');
+const { getFiles, shouldIgnoreFilepath } = require('./utils');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
@@ -231,8 +230,8 @@ if (require.main === module) {
 
       const runAndWatchPipeline = async () => {
         try {
-          // TODO: Make "ci-output" configurable
-          const logDir = 'ci-output/jobs';
+          const { outputDir } = pipelineStore.getState();
+          const logDir = path.join(outputDir, 'jobs');
           if (fs.existsSync(logDir)) {
             const files = fs.readdirSync(logDir);
             for (const file of files) {
@@ -257,18 +256,15 @@ if (require.main === module) {
       // Initial run
       runAndWatchPipeline();
       const pipelineDir = path.dirname(pipelineFile);
-      const ignorePatterns = pipelineStore.getState().ignorePatterns;
-      const filesArr = getFiles(pipelineStore.getState().files, pipelineDir, ignorePatterns);
-      // TODO: FIx bug where chokidar.watch is watching more than just "filesArr"
-      const watcher = chokidar.watch(filesArr, {
+      const { ignorePatterns, files } = pipelineStore.getState();
+      const watcher = chokidar.watch(files, {
         persistent: true,
         cwd: pipelineDir,
         ignored (filepath) {
-          for (const pattern of ignorePatterns) {
-            if (picomatch(pattern, { dot: true })(filepath)) {
-              return true;
-            }
+          if (path.isAbsolute(filepath)) {
+            filepath = path.relative(pipelineDir, filepath);
           }
+          return shouldIgnoreFilepath(filepath, ignorePatterns);
         }
       });
 
@@ -276,7 +272,6 @@ if (require.main === module) {
       // or tell user to close and re-run
 
       watcher.on('change', async (filePath) => {
-        // TODO: have it delete files here too
         const { workDir } = pipelineStore.getState();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
@@ -287,8 +282,6 @@ if (require.main === module) {
         ]);
         restartJobs(executor, filePath);
       });
-
-      // TODO: Handle case where a new file is created
 
       // Add event listener for deleted files
       watcher.on('unlink', async (filePath) => {

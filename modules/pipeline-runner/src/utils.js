@@ -19,16 +19,20 @@ function getFiles (files, rootDir, ignorePatterns) {
   }
 
   filesArr = filesArr.filter((filePath) => {
-    for (const ignorePattern of ignorePatterns) {
-      if (picomatch(ignorePattern, { dot: true })(filePath) ||
-          slash(filePath).startsWith(slash(ignorePattern))) {
-        return false;
-      }
-    }
-    return true;
+    return !shouldIgnoreFilepath(filePath, ignorePatterns);
   });
 
   return filesArr;
+}
+
+function shouldIgnoreFilepath (filePath, ignorePatterns) {
+  for (const ignorePattern of ignorePatterns) {
+    if (picomatch(ignorePattern, { dot: true })(filePath) ||
+        slash(filePath).startsWith(slash(ignorePattern))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function readFilesRecursively (dir, rootDir) {
@@ -48,4 +52,4 @@ function readFilesRecursively (dir, rootDir) {
   return results;
 }
 
-module.exports = { getFiles };
+module.exports = { getFiles, shouldIgnoreFilepath };
