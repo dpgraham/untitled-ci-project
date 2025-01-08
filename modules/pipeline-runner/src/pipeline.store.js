@@ -71,7 +71,7 @@ const pipelineStore = create((set) => ({
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
   reset: () => set((state) => ({
     ...state,
-    jobs: state.jobs.map((job) => ({ ...job, status: JOB_STATUS.PENDING })), // Update job statuses to JOB_STATUS.PENDING
+    jobs: [],
   })),
   setJobExitCode: (jobIndex, exitCode) => set((state) => {
     const updatedJobs = [...state.jobs];

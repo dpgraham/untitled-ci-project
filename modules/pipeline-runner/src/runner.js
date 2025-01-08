@@ -4,6 +4,7 @@ const pipelineStore = require('./pipeline.store');
 const { Command } = require('commander');
 const chokidar = require('chokidar');
 const fs = require('fs');
+const importFresh = require('import-fresh');
 const debounce = require('lodash.debounce');
 const { getFiles, shouldIgnoreFilepath } = require('./utils');
 
@@ -79,13 +80,13 @@ global.group = (name) => {
 
 // TODO: Add something here to sort the jobs so groups stay together
 
-async function buildPipeline (pipelineFile) {
+async function buildPipeline (pipelineFile, { isReset } = {}) {
   // Clear previous definitions
   pipelineStore.getState().reset();
   pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
-  require(pipelineFile);
+  importFresh(pipelineFile);
 
   // Sort the jobs based on their grouping
   pipelineStore.getState().sortJobs();
@@ -257,6 +258,8 @@ if (require.main === module) {
       runAndWatchPipeline();
       const pipelineDir = path.dirname(pipelineFile);
       const { ignorePatterns, files } = pipelineStore.getState();
+
+      // watch files changed
       const watcher = chokidar.watch(files, {
         persistent: true,
         cwd: pipelineDir,
@@ -267,10 +270,7 @@ if (require.main === module) {
           return shouldIgnoreFilepath(filepath, ignorePatterns);
         }
       });
-
-      // TODO: watch the pipeline file here too and have it restart the whole thing when it changes
-      // or tell user to close and re-run
-
+      
       watcher.on('change', async (filePath) => {
         const { workDir } = pipelineStore.getState();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
@@ -283,7 +283,6 @@ if (require.main === module) {
         restartJobs(executor, filePath);
       });
 
-      // Add event listener for deleted files
       watcher.on('unlink', async (filePath) => {
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         const { workDir } = pipelineStore.getState();
@@ -291,6 +290,22 @@ if (require.main === module) {
           target: path.join(workDir, path.normalize(filePath)),
         }]);
         restartJobs(executor, filePath);
+      });
+
+      const pipelineFileWatcher = chokidar.watch(pipelineFile, {
+        persistent: true,
+        cwd: pipelineDir,
+      })
+
+      pipelineFileWatcher.on('change', async () => {
+        console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
+        await buildPipeline(pipelineFile, { isReset: true });
+        await runPipeline(executor);
+      });
+
+      pipelineFileWatcher.on('unlink', () => {
+        console.log(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`);
+        process.exit(0);
       });
 
       // Set up readline interface for user input
