@@ -80,7 +80,7 @@ global.group = (name) => {
 
 // TODO: Add something here to sort the jobs so groups stay together
 
-async function buildPipeline (pipelineFile, { isReset } = {}) {
+async function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
   pipelineStore.getState().setPipelineFile(pipelineFile);
@@ -270,7 +270,7 @@ if (require.main === module) {
           return shouldIgnoreFilepath(filepath, ignorePatterns);
         }
       });
-      
+
       watcher.on('change', async (filePath) => {
         const { workDir } = pipelineStore.getState();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
@@ -295,11 +295,11 @@ if (require.main === module) {
       const pipelineFileWatcher = chokidar.watch(pipelineFile, {
         persistent: true,
         cwd: pipelineDir,
-      })
+      });
 
       pipelineFileWatcher.on('change', async () => {
         console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
-        await buildPipeline(pipelineFile, { isReset: true });
+        await buildPipeline(pipelineFile);
         await runPipeline(executor);
       });
 
