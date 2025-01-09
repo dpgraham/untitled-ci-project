@@ -9,6 +9,13 @@ job('log A', function () {
   step('cat ./tiny/a.log');
 });
 
+// TODO: Fix bug where saving pipeline over and over creates a new container each time
+
+// job('log A', function () {
+//   onFilesChanged('./tiny/a.log');
+//   step('cat ./tiny/a.log');
+// });
+
 job('echo hey', function () {
   onFilesChanged('./tiny/a.log');
   group('echos');

@@ -123,17 +123,6 @@ async function buildPipeline (pipelineFile) {
   }
 }
 
-function runPipeline (executor) {
-  pipelineStore.getState().enqueueJobs();
-  const nextJobs = pipelineStore.getState().dequeueNextJobs();
-  for (const nextJob of nextJobs) {
-    runJob(executor, nextJob);
-  }
-
-  // Return the executor so it can be stopped later
-  return executor;
-}
-
 const logStreams = {};
 
 async function runJob (executor, job) {
@@ -201,18 +190,21 @@ async function runJob (executor, job) {
 
 const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
-const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
+const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     await executor.stopExec();
-    pipelineStore.getState().enqueueJobs();
-    const nextJobs = pipelineStore.getState().dequeueNextJobs();
-    for (const nextJob of nextJobs) {
-      console.log(`Re-running from job '${nextJob.name}'`);
-      debouncedRunJob(executor, nextJob);
-    }
+    await debouncedRunNextJobs(executor);
+  }
+}
+
+async function runNextJobs (executor) {
+  pipelineStore.getState().enqueueJobs();
+  const nextJobs = pipelineStore.getState().dequeueNextJobs();
+  for await (const nextJob of nextJobs) {
+    runJob(executor, nextJob);
   }
 }
 
@@ -239,7 +231,7 @@ if (require.main === module) {
               await fs.promises.rm(path.join(logDir, file), { recursive: true, force: true });
             }
           }
-          await runPipeline(executor);
+          await runNextJobs(executor);
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           if (executor) {
@@ -300,7 +292,7 @@ if (require.main === module) {
       pipelineFileWatcher.on('change', async () => {
         console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
         await buildPipeline(pipelineFile);
-        await runPipeline(executor);
+        await debouncedRunNextJobs(executor);
       });
 
       pipelineFileWatcher.on('unlink', () => {
@@ -329,5 +321,3 @@ if (require.main === module) {
 
   program.parse(process.argv);
 }
-
-module.exports = { runPipeline };
