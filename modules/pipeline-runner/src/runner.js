@@ -203,7 +203,7 @@ async function restartJobs (executor, filePath) {
 async function runNextJobs (executor) {
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
-  for (const nextJob of nextJobs) {
+  for await (const nextJob of nextJobs) {
     console.log(`Re-running from job '${nextJob.name}'`);
     runJob(executor, nextJob);
   }
