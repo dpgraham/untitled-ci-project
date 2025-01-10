@@ -75,7 +75,7 @@ class DockerExecutor {
       stream.on('end', async () => {
         if (this.isKilled) {
           this.isKilled = null;
-          resolve();
+          reject({ isKilled: true });
           return;
         }
         const execInspect = await exec.inspect();

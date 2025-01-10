@@ -163,6 +163,10 @@ async function runJob (executor, job) {
       console.log(`Job ${job.name} passed.`);
     }
   } catch (error) {
+    // the run was killed, return and do nothing more
+    if (error.isKilled) {
+      return;
+    }
     console.log(`Error executing job: ${job.name}\nError details: ${error}\n`); // Log error
     exitCode = 1;
   }
