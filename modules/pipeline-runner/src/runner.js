@@ -4,9 +4,9 @@ const pipelineStore = require('./pipeline.store');
 const { Command } = require('commander');
 const chokidar = require('chokidar');
 const fs = require('fs');
+const importFresh = require('import-fresh');
 const debounce = require('lodash.debounce');
-const picomatch = require('picomatch');
-const { getFiles } = require('./utils');
+const { getFiles, shouldIgnoreFilepath } = require('./utils');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
@@ -42,6 +42,20 @@ global.ignore = (...patterns) => {
   pipelineStore.getState().addIgnorePatterns(patterns);
 };
 
+global.output = (dir) => {
+  const state = pipelineStore.getState();
+  state.setOutputDir(dir);
+  state.addIgnorePatterns([dir]);
+};
+
+global.concurrency = (concurrency) => {
+  pipelineStore.getState().setMaxConcurrency(concurrency);
+};
+
+global.workdir = (workdir) => {
+  pipelineStore.getState().setWorkDir(workdir);
+};
+
 global.onFilesChanged = (pattern) => {
   const state = pipelineStore.getState();
   const jobs = state.jobs;
@@ -72,7 +86,7 @@ async function buildPipeline (pipelineFile) {
   pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
-  require(pipelineFile);
+  importFresh(pipelineFile);
 
   // Sort the jobs based on their grouping
   pipelineStore.getState().sortJobs();
@@ -87,18 +101,18 @@ async function buildPipeline (pipelineFile) {
 
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
+  const workdir = pipelineStore.getState().workDir;
 
   try {
     let executor = new DockerExecutor();
-    await executor.start(currentImage, '/app');
+    await executor.start(currentImage, workdir);
 
     // Copy files matching the glob pattern to the container
     if (files) {
-      const destPath = '/app'; // TODO: Make the desPath configurable and not hardcoded
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       const filesToCopy = filesArr.map((file) => ({
-        source: file,
-        target: path.join(destPath, path.relative(pipelineDir, file)),
+        source: path.join(pipelineDir, file),
+        target: path.join(workdir, file),
       }));
       await executor.copyFiles(filesToCopy);
     }
@@ -109,22 +123,12 @@ async function buildPipeline (pipelineFile) {
   }
 }
 
-function runPipeline (executor) {
-  pipelineStore.getState().enqueueJobs();
-  const nextJobs = pipelineStore.getState().dequeueNextJobs();
-  for (const nextJob of nextJobs) {
-    runJob(executor, nextJob);
-  }
-
-  // Return the executor so it can be stopped later
-  return executor;
-}
-
 const logStreams = {};
 
 async function runJob (executor, job) {
-  // TODO: make "ci-output" configurable
-  const logFilePath = `ci-output/jobs/${job.name}.log`; // Define the log file path
+  const state = pipelineStore.getState();
+  const { outputDir } = state;
+  const logFilePath = path.join(outputDir, 'jobs', `${job.name}.log`);
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath);
   }
@@ -186,18 +190,21 @@ async function runJob (executor, job) {
 
 const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
-const debouncedRunJob = debounce(runJob, DEBOUNCE_MINIMUM);
+const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     await executor.stopExec();
-    pipelineStore.getState().enqueueJobs();
-    const nextJobs = pipelineStore.getState().dequeueNextJobs();
-    for (const nextJob of nextJobs) {
-      console.log(`Re-running from job '${nextJob.name}'`);
-      debouncedRunJob(executor, nextJob);
-    }
+    await debouncedRunNextJobs(executor);
+  }
+}
+
+async function runNextJobs (executor) {
+  pipelineStore.getState().enqueueJobs();
+  const nextJobs = pipelineStore.getState().dequeueNextJobs();
+  for await (const nextJob of nextJobs) {
+    runJob(executor, nextJob);
   }
 }
 
@@ -210,22 +217,21 @@ if (require.main === module) {
     .description('Run a pipeline')
     .argument('<file>', 'Path to the pipeline file')
     .option('--ci', 'Exit immediately when the job is done')
-    // TODO: Add max-concurrency as an option here
     .action(async (file) => {
       const pipelineFile = path.resolve(process.cwd(), file);
       let executor;
 
       const runAndWatchPipeline = async () => {
         try {
-          // TODO: Make "ci-output" configurable
-          const logDir = 'ci-output/jobs';
+          const { outputDir } = pipelineStore.getState();
+          const logDir = path.join(outputDir, 'jobs');
           if (fs.existsSync(logDir)) {
             const files = fs.readdirSync(logDir);
             for (const file of files) {
               await fs.promises.rm(path.join(logDir, file), { recursive: true, force: true });
             }
           }
-          await runPipeline(executor);
+          await runNextJobs(executor);
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           if (executor) {
@@ -243,48 +249,55 @@ if (require.main === module) {
       // Initial run
       runAndWatchPipeline();
       const pipelineDir = path.dirname(pipelineFile);
-      const ignorePatterns = pipelineStore.getState().ignorePatterns;
-      const filesArr = getFiles(pipelineStore.getState().files, pipelineDir, ignorePatterns);
-      // TODO: FIx bug where chokidar.watch is watching more than just "filesArr"
-      const watcher = chokidar.watch(filesArr, {
+      const { ignorePatterns, files } = pipelineStore.getState();
+
+      // watch files changed
+      const watcher = chokidar.watch(files, {
         persistent: true,
+        cwd: pipelineDir,
         ignored (filepath) {
-          for (const pattern of ignorePatterns) {
-            if (picomatch(pattern, { dot: true })(filepath)) {
-              return true;
-            }
+          if (path.isAbsolute(filepath)) {
+            filepath = path.relative(pipelineDir, filepath);
           }
+          return shouldIgnoreFilepath(filepath, ignorePatterns);
         }
       });
 
-      // TODO: watch the pipeline file here too and have it restart the whole thing when it changes
-      // or tell user to close and re-run
-
       watcher.on('change', async (filePath) => {
-        // TODO: have it delete files here too
+        const { workDir } = pipelineStore.getState();
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
         await executor.copyFiles([
           {
             source: path.join(path.dirname(pipelineFile), filePath),
-            // TODO: Change /app to not hardcoded
-            target: path.join('/app', path.normalize(filePath)),
+            target: path.join(workDir, path.normalize(filePath)),
           },
         ]);
         restartJobs(executor, filePath);
       });
 
-      // TODO: Handle case where a file is restored
-
-      // Add event listener for deleted files
       watcher.on('unlink', async (filePath) => {
         filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
+        const { workDir } = pipelineStore.getState();
         await executor.deleteFiles([{
-          // TODO: Change /app to not hardcoded
-          target: path.join('/app', path.normalize(filePath)),
+          target: path.join(workDir, path.normalize(filePath)),
         }]);
-        // Handle the deletion of the file (e.g., restart jobs or update state)
-        await executor.stopExec();
         restartJobs(executor, filePath);
+      });
+
+      const pipelineFileWatcher = chokidar.watch(pipelineFile, {
+        persistent: true,
+        cwd: pipelineDir,
+      });
+
+      pipelineFileWatcher.on('change', async () => {
+        console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
+        await buildPipeline(pipelineFile);
+        await debouncedRunNextJobs(executor);
+      });
+
+      pipelineFileWatcher.on('unlink', () => {
+        console.log(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`);
+        process.exit(0);
       });
 
       // Set up readline interface for user input
@@ -308,5 +321,3 @@ if (require.main === module) {
 
   program.parse(process.argv);
 }
-
-module.exports = { runPipeline };

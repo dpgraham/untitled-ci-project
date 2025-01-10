@@ -2,13 +2,14 @@ const fs = require('fs');
 const glob = require('glob');
 const path = require('path');
 const picomatch = require('picomatch');
+const slash = require('slash');
 
 function getFiles (files, rootDir, ignorePatterns) {
   let filesArr;
   try {
     if (fs.statSync(path.join(rootDir, files)).isDirectory()) {
       // If 'files' is a directory, read all files recursively
-      filesArr = readFilesRecursively(path.join(rootDir, files));
+      filesArr = readFilesRecursively(path.join(rootDir, files), rootDir);
     }
   } catch (e) {}
 
@@ -18,18 +19,23 @@ function getFiles (files, rootDir, ignorePatterns) {
   }
 
   filesArr = filesArr.filter((filePath) => {
-    for (const ignorePattern of ignorePatterns) {
-      if (picomatch(ignorePattern, { dot: true })(filePath)) {
-        return false;
-      }
-    }
-    return true;
+    return !shouldIgnoreFilepath(filePath, ignorePatterns);
   });
 
   return filesArr;
 }
 
-function readFilesRecursively (dir) {
+function shouldIgnoreFilepath (filePath, ignorePatterns) {
+  for (const ignorePattern of ignorePatterns) {
+    if (picomatch(ignorePattern, { dot: true })(filePath) ||
+        slash(filePath).startsWith(slash(ignorePattern))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function readFilesRecursively (dir, rootDir) {
   let results = [];
   const list = fs.readdirSync(dir);
   list.forEach((file) => {
@@ -37,13 +43,13 @@ function readFilesRecursively (dir) {
     const stat = fs.statSync(file);
     if (stat && stat.isDirectory()) {
       // Recursively read files in subdirectories
-      results = results.concat(readFilesRecursively(file));
+      results = results.concat(readFilesRecursively(file, rootDir));
     } else {
       // Return relative path instead of absolute path
-      results.push(path.relative(process.cwd(), file));
+      results.push(path.relative(rootDir, file));
     }
   });
   return results;
 }
 
-module.exports = { getFiles };
+module.exports = { getFiles, shouldIgnoreFilepath };

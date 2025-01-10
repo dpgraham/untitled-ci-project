@@ -1,9 +1,11 @@
-image('node:20');
+image('node:22');
 
 ignore('node_modules/**/*');
 ignore('.git/**/*');
-// TODO: This shouldn't be required to do
-ignore('ci-output/**/*');
+
+workdir('ci/');
+concurrency(3);
+output('output-ci/');
 
 job('dependencies', () => {
   onFilesChanged('package*.json');
