@@ -50,16 +50,15 @@ class DockerExecutor {
 
   // TODO: make it clone container if it is a sibling container
   async run (commands, fsStream) {
+    this.isKilled = false;
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     const execCommand = ['sh', '-c', commands.join('; ')];
-    this.execCommands = this.execCommands || [];
-    this.execCommands.push({ execCommand });
     const exec = await dockerContainer.exec({
       Cmd: execCommand,
       AttachStdout: true,
       AttachStderr: true,
-      Tty: true,
+      Tty: false,
     });
 
     const stream = await exec.start({ hijack: true, stdin: false });
@@ -74,9 +73,9 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        const command = this.execCommands.find((cmd) => cmd.execCommand === execCommand);
-        this.execCommands = this.execCommands.filter((cmd) => cmd.execCommand !== execCommand);
-        if (command.isKilled) {
+        if (this.isKilled) {
+          this.isKilled = null;
+          resolve();
           return;
         }
         const execInspect = await exec.inspect();
@@ -87,28 +86,26 @@ class DockerExecutor {
   }
 
   async stopExec () {
+    this.isKilled = true;
     const dockerContainer = this.docker.getContainer(this.container.getId());
-    const { Processes: processes } = await dockerContainer.top();
-    for (const process of processes) {
-      for (let i = 0; i < process.length; i++) {
-        const arg = process[i];
-        const commandIndex = this.execCommands.findIndex((e) => arg === e.execCommand.join(' '));
-        if (this.execCommands[commandIndex]) {
-          const pid = process[1];
-          // Execute the kill command inside the container
-          const exec = await dockerContainer.exec({
-            Cmd: ['kill', '-9', pid], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
-            AttachStdout: true,
-            AttachStderr: true
-          });
-          this.execCommands[commandIndex].isKilled = true;
+    const exec = await dockerContainer.exec({
+      Cmd: ['pkill', 'sh'], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
+      AttachStdout: true,
+      AttachStderr: true
+    });
 
-          // Start the execution
-          await exec.start({ hijack: true, stdin: false });
-        }
-      }
-    }
-
+    // Start the execution
+    const killStream = await exec.start({ hijack: true, stdin: false });
+    await new Promise((resolve) => {
+      killStream.on('end', function () {
+        resolve();
+      });
+      killStream.on('data', () => {
+        // for some reason, 'end' is only triggered when this event
+        // is set
+      });
+    });
+    console.log('done stopping everything');
   }
 
   async stop () {

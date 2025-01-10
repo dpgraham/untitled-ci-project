@@ -80,7 +80,7 @@ global.group = (name) => {
 
 // TODO: Add something here to sort the jobs so groups stay together
 
-async function buildPipeline (pipelineFile) {
+function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
   pipelineStore.getState().setPipelineFile(pipelineFile);
@@ -91,13 +91,17 @@ async function buildPipeline (pipelineFile) {
   // Sort the jobs based on their grouping
   pipelineStore.getState().sortJobs();
 
-  const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
+  const { image: currentImage } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
   if (!currentImage) {
     pipelineStore.getState().setImage('alpine:latest');
     console.warn('No image specified in the pipeline. Defaulting to alpine:latest');
   }
+}
+
+async function buildExecutor (pipelineFile) {
+  const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
 
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
@@ -241,7 +245,8 @@ if (require.main === module) {
         }
       };
 
-      executor = await buildPipeline(pipelineFile);
+      buildPipeline(pipelineFile);
+      executor = await buildExecutor(pipelineFile);
       executor.exitOnDone = program.opts().ci || process.env.CI;
 
       // Watch for file changes
@@ -284,6 +289,7 @@ if (require.main === module) {
         restartJobs(executor, filePath);
       });
 
+      // watch the pipeline file
       const pipelineFileWatcher = chokidar.watch(pipelineFile, {
         persistent: true,
         cwd: pipelineDir,
@@ -291,7 +297,8 @@ if (require.main === module) {
 
       pipelineFileWatcher.on('change', async () => {
         console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
-        await buildPipeline(pipelineFile);
+        await executor.stopExec();
+        buildPipeline(pipelineFile);
         await debouncedRunNextJobs(executor);
       });
 
