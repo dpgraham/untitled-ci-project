@@ -16,8 +16,7 @@ global.image = (imageName) => {
 };
 
 global.job = (name, fn) => {
-  // TODO: Forbid duplicate names
-  const jobDef = { name, steps: [], onFilesChanged: null }; // Add onFilesChanged attribute
+  const jobDef = { name, steps: [], onFilesChanged: null };
   pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
   fn(jobDef);
 };
@@ -86,7 +85,15 @@ function buildPipeline (pipelineFile) {
   pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
+  // TODO: log error and exit if pipeline is invaldi
   importFresh(pipelineFile);
+
+  pipelineStore.getState().validatePipeline();
+  const { isInvalidPipeline, invalidReason } = pipelineStore.getState();
+  if (isInvalidPipeline) {
+    console.error(invalidReason);
+    return new Error('invalid pipeline');
+  }
 
   // Sort the jobs based on their grouping
   pipelineStore.getState().sortJobs();
@@ -196,13 +203,10 @@ async function runJob (executor, job) {
   }
 }
 
-const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
-
-const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
-
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
+    debouncedRunNextJobs.cancel();
     await executor.stopExec();
     await debouncedRunNextJobs(executor);
   }
@@ -212,9 +216,13 @@ async function runNextJobs (executor) {
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
   for await (const nextJob of nextJobs) {
-    runJob(executor, nextJob);
+    await runJob(executor, nextJob);
   }
 }
+
+const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
+
+const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
 // Main execution
 if (require.main === module) {
@@ -249,7 +257,10 @@ if (require.main === module) {
         }
       };
 
-      buildPipeline(pipelineFile);
+      const err = buildPipeline(pipelineFile);
+      if (err) {
+        return;
+      }
       executor = await buildExecutor(pipelineFile);
       executor.exitOnDone = program.opts().ci || process.env.CI;
 
@@ -301,8 +312,12 @@ if (require.main === module) {
 
       pipelineFileWatcher.on('change', async () => {
         console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
+        debouncedRunNextJobs.cancel();
         await executor.stopExec();
-        buildPipeline(pipelineFile);
+        const err = buildPipeline(pipelineFile);
+        if (err) {
+          return;
+        }
         await debouncedRunNextJobs(executor);
       });
 

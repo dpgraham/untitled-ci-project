@@ -88,6 +88,8 @@ class DockerExecutor {
   async stopExec () {
     this.isKilled = true;
     const dockerContainer = this.docker.getContainer(this.container.getId());
+
+    // kill the "sh" process which is what runs all processes
     const exec = await dockerContainer.exec({
       Cmd: ['pkill', 'sh'], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
       AttachStdout: true,
@@ -105,7 +107,6 @@ class DockerExecutor {
         // is set
       });
     });
-    console.log('done stopping everything');
   }
 
   async stop () {

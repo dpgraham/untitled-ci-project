@@ -154,7 +154,28 @@ const pipelineStore = create((set) => ({
       }
     }));
     return hasInvalidatedAJob;
-  }
+  },
+  validatePipeline: () => set((state) => produce(state, (draft) => {
+    // check for duplicate job names
+    draft.isInvalidPipeline = false;
+    draft.invalidReason = null;
+    const jobNames = new Set();
+    const duplicateJobNames = [];
+    for (const job of state.jobs) {
+      if (jobNames.has(job.name)) {
+        draft.isInvalidPipeline = true;
+        duplicateJobNames.push(job.name);
+      } else {
+        jobNames.add(job.name);
+      }
+    }
+    if (duplicateJobNames.length > 0) {
+      draft.invalidReason = `Pipeline is invalid. ` +
+        `Found multiple instances of jobs with the same name ` +
+        `${duplicateJobNames.join(',')}. Names must be unique per job.`;
+      return;
+    }
+  })),
 }));
 
 module.exports = pipelineStore;

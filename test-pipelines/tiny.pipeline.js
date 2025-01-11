@@ -9,10 +9,10 @@ job('log A', function () {
   step('cat ./tiny/a.log');
 });
 
-// job('log A', function () {
-//   onFilesChanged('./tiny/a.log');
-//   step('cat ./tiny/a.log');
-// });
+job('log A', function () {
+  onFilesChanged('./tiny/a.log');
+  step('cat ./tiny/a.log');
+});
 
 job('echo hey', function () {
   onFilesChanged('./tiny/a.log');
