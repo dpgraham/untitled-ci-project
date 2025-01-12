@@ -27,6 +27,7 @@ const pipelineStore = create((set) => ({
   workDir: '/ci',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
+    // TODO: simplify this after the automatic "grouping" feature has been done
     for (const job of draft.jobs) {
       if (job.status === JOB_STATUS.RUNNING) {
         break;
@@ -59,6 +60,7 @@ const pipelineStore = create((set) => ({
     }
   })),
   setImage: (image) => set({ image }),
+  // TODO: when adding a job, make sure it's put in it's group
   addJob: (job) => set((state) => ({ jobs: [...state.jobs, job] })),
   addStep: (step) => set((state) => {
     const updatedJobs = [...state.jobs];

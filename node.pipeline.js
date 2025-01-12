@@ -7,9 +7,12 @@ workdir('ci/');
 concurrency(3);
 output('output-ci/');
 
+// TODO: allow exposing a port from inside container to outside
+// port(HOST_PORT, CONTAINER_PORT);
+
 job('dependencies', () => {
   onFilesChanged('package*.json');
-  step('npm ci');
+  step('npm ci --loglevel verbose');
 });
 
 job('lint', () => {

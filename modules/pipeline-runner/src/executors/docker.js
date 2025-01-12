@@ -16,7 +16,6 @@ class DockerExecutor {
       .withCommand(['sh', '-c', "echo 'Container is ready' && tail -f /dev/null"])
       .start();
 
-    console.log('Container is ready. Starting pipeline execution.');
     return this.container;
   }
 
@@ -65,10 +64,10 @@ class DockerExecutor {
 
     stream.on('data', (chunk) => {
       // Log the chunk to the console
-      // TODO: Only log this if verbosity was set + change all console logs to use Winston
-      console.log('Received chunk:', chunk.toString()); // Convert to string if necessary
+      // TODO: redact any secrets and any suspected PII here
       // TODO: filter out illegal characters
-      fsStream.write(chunk);
+      const filteredChunk = chunk.toString().replace(/[^ -~\n]/g, ''); // Allow only printable ASCII characters
+      fsStream.write(filteredChunk);
     });
 
     return new Promise((resolve, reject) => {
