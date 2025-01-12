@@ -27,6 +27,7 @@ const pipelineStore = create((set) => ({
   workDir: '/ci',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
+    // TODO: simplify this after the automatic "grouping" feature has been done
     for (const job of draft.jobs) {
       if (job.status === JOB_STATUS.RUNNING) {
         break;

@@ -7,6 +7,8 @@ ignore('./tiny/ignore/**/*');
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   step('cat ./tiny/a.log');
+  // TODO: allow setting environment variables here
+  // env('hello', 'world');
 });
 
 // job('log A', function () {
