@@ -22,15 +22,7 @@ global.job = (name, fn) => {
 };
 
 global.step = (command) => {
-  const state = pipelineStore.getState();
-  const jobs = state.jobs;
-  if (jobs.length === 0) {
-    throw new Error('Steps cannot be set outside of a job');
-  }
-  const currentJob = jobs[jobs.length - 1];
-  currentJob.steps = currentJob.steps || [];
-  currentJob.steps.push({ command });
-  pipelineStore.setState({ jobs });
+  pipelineStore.getState().addStep({ command });
 };
 
 global.files = (globPattern) => {
@@ -56,25 +48,11 @@ global.workdir = (workdir) => {
 };
 
 global.onFilesChanged = (pattern) => {
-  const state = pipelineStore.getState();
-  const jobs = state.jobs;
-  if (jobs.length === 0) {
-    throw new Error('onFilesChanged cannot be set outside of a job');
-  }
-  const currentJob = jobs[jobs.length - 1];
-  currentJob.onFilesChanged = pattern; // Set the onFilesChanged attribute
-  pipelineStore.setState({ jobs });
+  pipelineStore.getState().setOnFilesChanged(pattern);
 };
 
 global.group = (name) => {
-  const state = pipelineStore.getState();
-  const jobs = state.jobs;
-  if (jobs.length === 0) {
-    throw new Error('onFilesChanged cannot be set outside of a job');
-  }
-  const currentJob = jobs[jobs.length - 1];
-  currentJob.group = name;
-  pipelineStore.setState({ jobs });
+  pipelineStore.getState().setGroup(name);
 };
 
 // TODO: Add something here to sort the jobs so groups stay together
@@ -85,7 +63,7 @@ function buildPipeline (pipelineFile) {
   pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
-  // TODO: log error and exit if pipeline is invaldi
+  // TODO: log error and exit if pipeline is invalid
   importFresh(pipelineFile);
 
   pipelineStore.getState().validatePipeline();

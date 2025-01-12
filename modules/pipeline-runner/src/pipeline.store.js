@@ -44,31 +44,19 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
-  sortJobs: () => set((state) => produce(state, (draft) => {
-    for (let i = 0; i < draft.jobs.length; i++) {
-      const job = draft.jobs[i];
-      if (job.group) {
-        const group = job.group;
-        for (let j = i + 1; j < draft.jobs.length; j++) {
-          if (draft.jobs[j].group === group) {
-            const [movedJob] = draft.jobs.splice(j, 1); // Remove job from j
-            draft.jobs.splice(i + 1, 0, movedJob); // Insert job at i
-            i += 1;
-          }
-        }
-      }
-    }
+  sortJobs: () => set((state) => produce(state, (/* draft */) => {
+    // TODO: implement this function to order by "group"
   })),
   setImage: (image) => set({ image }),
-  // TODO: when adding a job, make sure it's put in it's group
-  addJob: (job) => set((state) => ({ jobs: [...state.jobs, job] })),
-  addStep: (step) => set((state) => {
-    const updatedJobs = [...state.jobs];
-    const lastJob = updatedJobs[updatedJobs.length - 1];
-    lastJob.steps = lastJob.steps || [];
-    lastJob.steps.push(step);
-    return { jobs: updatedJobs };
-  }),
+  addJob: (job) => set((state) => produce(state, (draft) => {
+    draft.jobs.push(job);
+  })),
+  addStep: (step) => set((state) => produce(state, (draft) => {
+    if (draft.jobs.length === 0) {
+      throw new Error(`Invalid pipeline. "step" must be called from within a job.`);
+    }
+    draft.jobs[draft.jobs.length - 1].steps.push(step);
+  })),
   setFiles: (files) => set({ files }),
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
   reset: () => set((state) => ({
@@ -88,6 +76,18 @@ const pipelineStore = create((set) => ({
     }
     set({ workDir });
   },
+  setGroup: (group) => set((state) => produce(state, (draft) => {
+    if (draft.jobs.length === 0) {
+      throw new Error(`Invalid pipeline. Must set "group" on a job`);
+    }
+    draft.jobs[draft.jobs.length - 1].group = group;
+  })),
+  setOnFilesChanged: (onFilesChanged) => set((state) => produce(state, (draft) => {
+    if (draft.jobs.length === 0) {
+      throw new Error(`Invalid pipeline. Must set "group" on a job`);
+    }
+    draft.jobs[draft.jobs.length - 1].onFilesChanged = onFilesChanged;
+  })),
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
