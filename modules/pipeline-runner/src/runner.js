@@ -22,15 +22,7 @@ global.job = (name, fn) => {
 };
 
 global.step = (command) => {
-  const state = pipelineStore.getState();
-  const jobs = state.jobs;
-  if (jobs.length === 0) {
-    throw new Error('Steps cannot be set outside of a job');
-  }
-  const currentJob = jobs[jobs.length - 1];
-  currentJob.steps = currentJob.steps || [];
-  currentJob.steps.push({ command });
-  pipelineStore.setState({ jobs });
+  pipelineStore.getState().addStep({ command });
 };
 
 global.files = (globPattern) => {

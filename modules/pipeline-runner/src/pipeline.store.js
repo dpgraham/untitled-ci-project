@@ -59,14 +59,31 @@ const pipelineStore = create((set) => ({
     }
   })),
   setImage: (image) => set({ image }),
-  addJob: (job) => set((state) => ({ jobs: [...state.jobs, job] })),
-  addStep: (step) => set((state) => {
-    const updatedJobs = [...state.jobs];
-    const lastJob = updatedJobs[updatedJobs.length - 1];
-    lastJob.steps = lastJob.steps || [];
-    lastJob.steps.push(step);
-    return { jobs: updatedJobs };
-  }),
+  addJob: (job) => set((state) => produce(state, (draft) => {
+    if (!job.group) {
+      draft.jobs.push(job);
+      return;
+    }
+    
+    let lastIndex = -1;
+    for (let i = 0; i < draft.jobs.length; i++) {
+      if (draft.jobs[i].group === job.group) {
+        lastIndex = i;
+      }
+    }
+    
+    if (lastIndex !== -1) {
+      draft.jobs.splice(lastIndex + 1, 0, job);
+    } else {
+      draft.jobs.push(job);
+    }
+  })),
+  addStep: (step) => set((state) => produce(state, (draft) => {
+    if (draft.jobs.length === 0) {
+      throw new Error(`Invalid pipeline. "step" must be called from within a job.`);
+    }
+    draft.jobs[draft.jobs.length - 1].steps.push(step);
+  })),
   setFiles: (files) => set({ files }),
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
   reset: () => set((state) => ({
