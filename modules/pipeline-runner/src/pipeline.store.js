@@ -44,9 +44,6 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
-  sortJobs: () => set((state) => produce(state, (/* draft */) => {
-    // TODO: implement this function to order by "group"
-  })),
   setImage: (image) => set({ image }),
   addJob: (job) => set((state) => produce(state, (draft) => {
     draft.jobs.push(job);

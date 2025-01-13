@@ -48,9 +48,16 @@ class DockerExecutor {
   }
 
   // TODO: make it clone container if it is a sibling container
-  async run (commands, fsStream) {
+  async run (commands, fsStream, opts) {
+    const { clone } = opts;
     this.isKilled = false;
-    const dockerContainer = this.docker.getContainer(this.container.getId());
+    let clonedContainer = null;
+    if (clone) {
+      clonedContainer = await this._cloneContainer();
+    }
+    const dockerContainer = clone ?
+      clonedContainer.container :
+      this.docker.getContainer(this.container.getId());
 
     const execCommand = ['sh', '-c', commands.join('; ')];
     const exec = await dockerContainer.exec({
@@ -80,6 +87,9 @@ class DockerExecutor {
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
         if (exitCode === 0) {resolve(exitCode);} else {reject(exitCode);}
+        if (clonedContainer) {
+          this._destroyContainer(clonedContainer);
+        }
       });
     });
   }
@@ -112,6 +122,38 @@ class DockerExecutor {
     if (this.container) {
       await this.container.stop();
     }
+  }
+
+  async _cloneContainer () {
+    // TODO: when creating containers, give them names that indicate that they're
+    // being run from this application
+    const dockerContainer = this.docker.getContainer(this.container.getId());
+
+    // Step 1: Create a new image from the existing container
+    const imageName = `cloned-image-${Math.random().toString(36).substring(2, 15)}`; // Generate a random image name
+    await dockerContainer.commit({
+      repo: imageName,
+      tag: 'latest',
+    });
+
+    // Step 2: Start a new container from the created image
+    const newContainer = await new GenericContainer(imageName)
+      .withStartupTimeout(120000)
+      .withPrivilegedMode(true)
+      .start();
+
+    const output = { container: newContainer, image: imageName };
+    this.clonedContainers = this.clonedContainers || [];
+    this.clonedContainers.push(output);
+
+    return { container: newContainer.container, image: imageName };
+  }
+
+  async _destroyContainer ({ container, image }) {
+    return await Promise.all([
+      container.remove({ force: true }),
+      this.docker.getImage(image).remove({ force: true })
+    ]);
   }
 }
 

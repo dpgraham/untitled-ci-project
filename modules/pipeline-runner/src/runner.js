@@ -73,9 +73,6 @@ function buildPipeline (pipelineFile) {
     return new Error('invalid pipeline');
   }
 
-  // Sort the jobs based on their grouping
-  pipelineStore.getState().sortJobs();
-
   const { image: currentImage } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
@@ -141,7 +138,12 @@ async function runJob (executor, job) {
   let exitCode;
   console.log(`Running job: ${job.name}`);
   try {
-    exitCode = await executor.run(commands, logStream);
+    const opts = {
+      // if the job is part of a "group" we need to clone the executor so
+      // that it can be run in parallel
+      clone: !!job.group,
+    };
+    exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
       console.log(`Job ${job.name} failed with exit code: ${exitCode}\n`); // Log failure
     } else {
