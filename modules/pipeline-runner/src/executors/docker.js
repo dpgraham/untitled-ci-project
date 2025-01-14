@@ -47,7 +47,6 @@ class DockerExecutor {
     }
   }
 
-  // TODO: make it clone container if it is a sibling container
   async run (commands, fsStream, opts) {
     const { clone } = opts;
     this.isKilled = false;
@@ -79,10 +78,22 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        if (this.isKilled) {
+        if (!clonedContainer && this.isKilled) {
           this.isKilled = null;
           reject({ isKilled: true });
           return;
+        }
+
+        // if it's cloned container and the container was already removed,
+        // return that this "isKilled"
+        if (clonedContainer) {
+          const isKilled = !this.clonedContainers.find(({ container }) =>
+            container.id === dockerContainer.id
+          );
+          if (isKilled) {
+            reject({ isKilled: true });
+            return;
+          }
         }
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
@@ -116,11 +127,21 @@ class DockerExecutor {
         // is set
       });
     });
+
+    // Kill any cloned containers
+    this._stopClonedContainers();
   }
 
   async stop () {
-    if (this.container) {
-      await this.container.stop();
+    return await Promise.all([
+      this.container && this.container.stop(),
+      this._stopClonedContainers(),
+    ]);
+  }
+
+  async _stopClonedContainers () {
+    for await (const clonedContainer of this.clonedContainers || []) {
+      await this._destroyContainer(clonedContainer);
     }
   }
 
@@ -142,7 +163,7 @@ class DockerExecutor {
       .withPrivilegedMode(true)
       .start();
 
-    const output = { container: newContainer, image: imageName };
+    const output = { container: newContainer.container, image: imageName };
     this.clonedContainers = this.clonedContainers || [];
     this.clonedContainers.push(output);
 
@@ -150,7 +171,11 @@ class DockerExecutor {
   }
 
   async _destroyContainer ({ container, image }) {
-    return await Promise.all([
+    // Remove the entry from clonedContainers
+    this.clonedContainers = this.clonedContainers.filter(
+      (cloned) => cloned.container.id !== container.id
+    );
+    return await Promise.allSettled([
       container.remove({ force: true }),
       this.docker.getImage(image).remove({ force: true })
     ]);
