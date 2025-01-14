@@ -186,6 +186,7 @@ async function runJob (executor, job) {
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
+    console.log(`${filePath} changed. Re-running pipeline.`);
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
     await debouncedRunNextJobs(executor);
