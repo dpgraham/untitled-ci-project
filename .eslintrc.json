@@ -10,8 +10,6 @@
     "sourceType": "module"
   },
   "rules": {
-    // TODO: Bring this back once use winston
-    "no-console": "off",
     // Add any custom rules here
     "promise/no-native": "off",
     "arrow-body-style": "off"

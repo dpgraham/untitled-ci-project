@@ -22,12 +22,11 @@ const pipelineStore = create((set) => ({
   files: './',
   ignorePatterns: [],
   result: 'in progress',
-  maxConcurrency: 1, // TODO: Change this to 2 once the container cloning is ready
+  maxConcurrency: 2,
   outputDir: 'ci-output',
   workDir: '/ci',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
-    // TODO: simplify this after the automatic "grouping" feature has been done
     for (const job of draft.jobs) {
       if (job.status === JOB_STATUS.RUNNING) {
         break;
@@ -170,8 +169,8 @@ const pipelineStore = create((set) => ({
     }
     if (duplicateJobNames.length > 0) {
       draft.invalidReason = `Pipeline is invalid. ` +
-        `Found multiple instances of jobs with the same name ` +
-        `${duplicateJobNames.join(',')}. Names must be unique per job.`;
+        `Job names must be unique. Found instances of jobs with duplicate names: '` +
+        `${duplicateJobNames.join('\',')}'.`;
       return;
     }
   })),
