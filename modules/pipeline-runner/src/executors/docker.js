@@ -71,7 +71,6 @@ class DockerExecutor {
     stream.on('data', (chunk) => {
       // Log the chunk to the console
       // TODO: redact any secrets and any suspected PII here
-      // TODO: filter out illegal characters
       const filteredChunk = chunk.toString().replace(/[^ -~\n]/g, ''); // Allow only printable ASCII characters
       fsStream.write(filteredChunk);
     });
@@ -97,7 +96,7 @@ class DockerExecutor {
         }
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
-        if (exitCode === 0) {resolve(exitCode);} else {reject(exitCode);}
+        if (exitCode === 0) {resolve(exitCode);} else {resolve(exitCode);}
         if (clonedContainer) {
           this._destroyContainer(clonedContainer);
         }

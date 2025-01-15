@@ -7,6 +7,8 @@ const fs = require('fs');
 const importFresh = require('import-fresh');
 const debounce = require('lodash.debounce');
 const { getFiles, shouldIgnoreFilepath } = require('./utils');
+const { getLogger } = require('./logger');
+require('colors');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
@@ -55,7 +57,7 @@ global.group = (name) => {
   pipelineStore.getState().setGroup(name);
 };
 
-// TODO: Add something here to sort the jobs so groups stay together
+const logger = getLogger();
 
 function buildPipeline (pipelineFile) {
   // Clear previous definitions
@@ -69,7 +71,7 @@ function buildPipeline (pipelineFile) {
   pipelineStore.getState().validatePipeline();
   const { isInvalidPipeline, invalidReason } = pipelineStore.getState();
   if (isInvalidPipeline) {
-    console.error(invalidReason);
+    logger.error(invalidReason.red);
     return new Error('invalid pipeline');
   }
 
@@ -78,7 +80,7 @@ function buildPipeline (pipelineFile) {
   // Default to Alpine if no image is specified
   if (!currentImage) {
     pipelineStore.getState().setImage('alpine:latest');
-    console.warn('No image specified in the pipeline. Defaulting to alpine:latest');
+    logger.warn('No image specified in the pipeline. Defaulting to alpine:latest'.yellow);
   }
 }
 
@@ -104,12 +106,21 @@ async function buildExecutor (pipelineFile) {
     }
     return executor;
   } catch (err) {
-    console.error('Failed to start the container or copy files. Please check your Docker installation and permissions.');
+    logger.error('Failed to start the container or copy files. Please check your Docker installation and permissions.'.red);
     throw err;
   }
 }
 
 const logStreams = {};
+
+function printJobInfo (nextJobs) {
+  const jobNames = nextJobs.map(({name}) => name);
+  if (jobNames.length > 1) {
+    logger.info(`Running ${jobNames.length} jobs concurrently: '${jobNames.join('\', \'')}'`.blue);
+  } else if (jobNames.length === 1) {
+    logger.info(`Running job: '${jobNames[0]}'`.blue);
+  }
+}
 
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
@@ -136,7 +147,6 @@ async function runJob (executor, job) {
   }
 
   let exitCode;
-  console.log(`Running job: ${job.name}`);
   try {
     const opts = {
       // if the job is part of a "group" we need to clone the executor so
@@ -145,18 +155,12 @@ async function runJob (executor, job) {
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
-      console.log(`Job ${job.name} failed with exit code: ${exitCode}\n`); // Log failure
+      // TODO: add emoji prefixes to all of the loggers to make it more colorful
+      logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
     } else {
-      console.log(`Job ${job.name} passed.`);
+      logger.info(`Job '${job.name}' passed.`.green);
     }
-  } catch (error) {
-    // the run was killed, return and do nothing more
-    if (error.isKilled) {
-      return;
-    }
-    console.log(`Error executing job: ${job.name}\nError details: ${error}\n`); // Log error
-    exitCode = 1;
-  }
+  } catch (err) { }
 
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
@@ -165,17 +169,24 @@ async function runJob (executor, job) {
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
-    console.log(`Pipeline is ${pipelineStatus === PIPELINE_STATUS.PASSED ? 'passing' : 'failing'}`);
+    logger.info(`\nPipeline is ${pipelineStatus === PIPELINE_STATUS.PASSED ? 'passing' : 'failing'}`.green);
     if (executor.exitOnDone) {
       process.exit(exitCode);
     }
-    console.log('Press "q" and Enter to quit the pipeline.');
+    // TODO: use an NPM package that accepts user input. One that
+    // makes it so you don't need to push enter
+    logger.info('\nPress "q" and Enter to quit the pipeline.'.gray);
     return;
   }
 
   // TODO: pipelinStore.getState().setJobResult() <-- sets reason why job failed, if it did
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
+
+  // print message indicating job(s) is/are running
+  printJobInfo(nextJobs);
+
+  // run the jobs
   if (nextJobs.length > 0) {
     for (const nextJob of nextJobs) {
       runJob(executor, nextJob);
@@ -186,7 +197,7 @@ async function runJob (executor, job) {
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
-    console.log(`${filePath} changed. Re-running pipeline.`);
+    logger.info(`${filePath} changed. Re-running pipeline.`.gray);
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
     await debouncedRunNextJobs(executor);
@@ -196,6 +207,9 @@ async function restartJobs (executor, filePath) {
 async function runNextJobs (executor) {
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
+  // print message indicating job(s) is/are running
+  printJobInfo(nextJobs);
+
   for await (const nextJob of nextJobs) {
     await runJob(executor, nextJob);
   }
@@ -222,6 +236,7 @@ if (require.main === module) {
         try {
           const { outputDir } = pipelineStore.getState();
           const logDir = path.join(outputDir, 'jobs');
+          logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
           if (fs.existsSync(logDir)) {
             const files = fs.readdirSync(logDir);
             for (const file of files) {
@@ -230,7 +245,8 @@ if (require.main === module) {
           }
           await runNextJobs(executor);
         } catch (error) {
-          console.error('Pipeline execution failed:', error);
+          logger.error(`Pipeline execution failed`.red);
+          logger.error(error);
           if (executor) {
             await executor.stop();
           }
@@ -292,7 +308,7 @@ if (require.main === module) {
       });
 
       pipelineFileWatcher.on('change', async () => {
-        console.log(`You changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`);
+        logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
         debouncedRunNextJobs.cancel();
         await executor.stopExec();
         const err = buildPipeline(pipelineFile);
@@ -303,7 +319,7 @@ if (require.main === module) {
       });
 
       pipelineFileWatcher.on('unlink', () => {
-        console.log(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`);
+        logger.info(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`.gray);
         process.exit(0);
       });
 
@@ -315,7 +331,7 @@ if (require.main === module) {
 
       readline.on('line', async (input) => {
         if (input.toLowerCase() === 'q') {
-          console.log('Stopping executor and exiting pipeline...');
+          logger.info('Stopping executor and exiting pipeline...'.gray);
           if (executor) {
             await executor.stop();
           }
