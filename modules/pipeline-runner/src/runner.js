@@ -17,10 +17,20 @@ global.image = (imageName) => {
   pipelineStore.getState().setImage(imageName);
 };
 
+let currentJob = null;
+
 global.job = (name, fn) => {
   const jobDef = { name, steps: [], onFilesChanged: null };
-  pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
+  currentJob = pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
   fn(jobDef);
+  currentJob = null;
+};
+
+global.env = (name, value) => {
+  // TODO: handle case where "currentJob" is not null and give env to job only
+  if (currentJob === null) {
+    pipelineStore.getState().setEnv(name, value);
+  }
 };
 
 global.step = (command) => {
@@ -156,6 +166,7 @@ async function runJob (executor, job) {
       // if the job is part of a "group" we need to clone the executor so
       // that it can be run in parallel
       clone: !!job.group,
+      env: state.getEnv(job),
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {

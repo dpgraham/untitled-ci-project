@@ -44,9 +44,20 @@ const pipelineStore = create((set) => ({
     }
   })),
   setImage: (image) => set({ image }),
-  addJob: (job) => set((state) => produce(state, (draft) => {
-    draft.jobs.push(job);
+  addJob: (job) => {
+    set((state) => produce(state, (draft) => {
+      draft.jobs.push(job);
+    }));
+    return pipelineStore.getState().jobs[pipelineStore.getState().jobs.length - 1];
+  },
+  setEnv: (envName, value) => set((state) => produce(state, (draft) => {
+    draft.env = draft.env || {};
+    draft.env[envName] = value;
   })),
+  // TODO: add "job" as variable in getEnv
+  getEnv: (/* job */) => {
+    return pipelineStore.getState().env;
+  },
   addStep: (step) => set((state) => produce(state, (draft) => {
     if (draft.jobs.length === 0) {
       throw new Error(`Invalid pipeline. "step" must be called from within a job.`);
@@ -59,11 +70,6 @@ const pipelineStore = create((set) => ({
     ...state,
     jobs: [],
   })),
-  setJobExitCode: (jobIndex, exitCode) => set((state) => {
-    const updatedJobs = [...state.jobs];
-    updatedJobs[jobIndex] = { ...updatedJobs[jobIndex], exitCode };
-    return { jobs: updatedJobs };
-  }),
   setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
   setOutputDir: (outputDir) => set({ outputDir }),
   setWorkDir: (workDir) => {
