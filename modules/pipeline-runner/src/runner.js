@@ -65,8 +65,12 @@ function buildPipeline (pipelineFile) {
   pipelineStore.getState().setPipelineFile(pipelineFile);
 
   // Load and execute the pipeline definition
-  // TODO: log error and exit if pipeline is invalid
-  importFresh(pipelineFile);
+  try {
+    importFresh(pipelineFile);
+  } catch (e) {
+    logger.error(`Pipeline is invalid. Syntax error: ${e.stack}`.red);
+    return new Error(`invalid pipeline`);
+  }
 
   pipelineStore.getState().validatePipeline();
   const { isInvalidPipeline, invalidReason } = pipelineStore.getState();
@@ -160,7 +164,11 @@ async function runJob (executor, job) {
     } else {
       logger.info(`Job '${job.name}' passed.`.green);
     }
-  } catch (err) { }
+  } catch (err) {
+    if (err.isKilled) {
+      return;
+    }
+  }
 
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
@@ -169,7 +177,11 @@ async function runJob (executor, job) {
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
-    logger.info(`\nPipeline is ${pipelineStatus === PIPELINE_STATUS.PASSED ? 'passing' : 'failing'}`.green);
+    if (pipelineStatus === PIPELINE_STATUS.PASSED) {
+      logger.info(`\nPipeline is passing`.green);
+    } else {
+      logger.error(`\nPipeline is failing`.red);
+    }
     if (executor.exitOnDone) {
       process.exit(exitCode);
     }
