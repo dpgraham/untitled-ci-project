@@ -48,7 +48,7 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone } = opts;
+    const { clone, env } = opts;
     this.isKilled = false;
     let clonedContainer = null;
     if (clone) {
@@ -58,12 +58,15 @@ class DockerExecutor {
       clonedContainer.container :
       this.docker.getContainer(this.container.getId());
 
+    const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
+
     const execCommand = ['sh', '-c', commands.join('; ')];
     const exec = await dockerContainer.exec({
       Cmd: execCommand,
       AttachStdout: true,
       AttachStderr: true,
       Tty: false,
+      Env,
     });
 
     const stream = await exec.start({ hijack: true, stdin: false });

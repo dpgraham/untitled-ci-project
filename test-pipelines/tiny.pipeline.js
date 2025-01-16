@@ -4,9 +4,12 @@ concurrency(2);
 
 ignore('./tiny/ignore/**/*');
 
+env('HELLO', 'WORLD!');
+
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   step('cat ./tiny/a.log');
+  step('echo "\n$HELLO"');
   // TODO: allow setting environment variables and secrets here
   // env('hello', 'world');
   // secret('its_a_secret', 'SHUT UUUUUUP!');
