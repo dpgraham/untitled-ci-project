@@ -50,18 +50,26 @@ const pipelineStore = create((set) => ({
     }));
     return pipelineStore.getState().jobs[pipelineStore.getState().jobs.length - 1];
   },
-  setEnv: (envName, value, job) => set((state) => produce(state, (draft) => {
+  setEnv: (envName, value, job, isSecret) => set((state) => produce(state, (draft) => {
     if (job) {
       for (const checkJob of draft.jobs) {
         if (checkJob.name === job.name) {
           checkJob.env = checkJob.env || {};
           checkJob.env[envName] = value;
+          if (isSecret) {
+            checkJob.secrets = checkJob.secrets || {};
+            checkJob.secrets[envName] = value;
+          }
           return;
         }
       }
     }
     draft.env = draft.env || {};
     draft.env[envName] = value;
+    if (isSecret) {
+      draft.secrets = draft.secrets || {};
+      draft.secrets[envName] = value;
+    }
   })),
   getEnv: (job) => {
     const globalEnv = pipelineStore.getState().env || {};
@@ -70,6 +78,17 @@ const pipelineStore = create((set) => ({
     for (const checkJob of jobs) {
       if (checkJob.name === job.name) {
         jobEnv = checkJob.env || {};
+      }
+    }
+    return {...globalEnv, ...jobEnv};
+  },
+  getSecrets: (job) => {
+    const globalEnv = pipelineStore.getState().secrets || {};
+    const jobs = pipelineStore.getState().jobs;
+    let jobEnv = {};
+    for (const checkJob of jobs) {
+      if (checkJob.name === job.name) {
+        jobEnv = checkJob.secrets || {};
       }
     }
     return {...globalEnv, ...jobEnv};

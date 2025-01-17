@@ -30,6 +30,10 @@ global.env = (name, value) => {
   pipelineStore.getState().setEnv(name, value, currentJob);
 };
 
+global.secret = (name, value) => {
+  pipelineStore.getState().setEnv(name, value, currentJob, true);
+};
+
 global.step = (command) => {
   pipelineStore.getState().addStep({ command });
 };
@@ -164,6 +168,7 @@ async function runJob (executor, job) {
       // that it can be run in parallel
       clone: !!job.group,
       env: state.getEnv(job),
+      secrets: state.getSecrets(job),
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
