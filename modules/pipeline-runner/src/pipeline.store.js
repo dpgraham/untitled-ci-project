@@ -50,13 +50,29 @@ const pipelineStore = create((set) => ({
     }));
     return pipelineStore.getState().jobs[pipelineStore.getState().jobs.length - 1];
   },
-  setEnv: (envName, value) => set((state) => produce(state, (draft) => {
+  setEnv: (envName, value, job) => set((state) => produce(state, (draft) => {
+    if (job) {
+      for (const checkJob of draft.jobs) {
+        if (checkJob.name === job.name) {
+          checkJob.env = checkJob.env || {};
+          checkJob.env[envName] = value;
+          return;
+        }
+      }
+    }
     draft.env = draft.env || {};
     draft.env[envName] = value;
   })),
-  // TODO: add "job" as variable in getEnv
-  getEnv: (/* job */) => {
-    return pipelineStore.getState().env;
+  getEnv: (job) => {
+    const globalEnv = pipelineStore.getState().env || {};
+    const jobs = pipelineStore.getState().jobs;
+    let jobEnv = {};
+    for (const checkJob of jobs) {
+      if (checkJob.name === job.name) {
+        jobEnv = checkJob.env || {};
+      }
+    }
+    return {...globalEnv, ...jobEnv};
   },
   addStep: (step) => set((state) => produce(state, (draft) => {
     if (draft.jobs.length === 0) {

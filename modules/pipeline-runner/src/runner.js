@@ -27,10 +27,7 @@ global.job = (name, fn) => {
 };
 
 global.env = (name, value) => {
-  // TODO: handle case where "currentJob" is not null and give env to job only
-  if (currentJob === null) {
-    pipelineStore.getState().setEnv(name, value);
-  }
+  pipelineStore.getState().setEnv(name, value, currentJob);
 };
 
 global.step = (command) => {
@@ -180,6 +177,8 @@ async function runJob (executor, job) {
       return;
     }
   }
+
+  // TODO: Handle a case where when the pipeline exits, the containers are all shutdown
 
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
