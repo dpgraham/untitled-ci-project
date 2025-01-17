@@ -9,6 +9,7 @@ class DockerExecutor {
   }
 
   async start (image, workingDir) {
+    // TODO: give the container a name indicating where the job is being run from
     this.container = await new GenericContainer(image)
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)

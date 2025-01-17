@@ -8,11 +8,9 @@ env('HELLO', 'WORLD!');
 
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
+  env('HELLO', 'GOODBYE')
   step('cat ./tiny/a.log');
   step('echo "\n$HELLO"');
-  // TODO: allow setting environment variables and secrets here
-  // env('hello', 'world');
-  // secret('its_a_secret', 'SHUT UUUUUUP!');
 });
 
 // job('log A', function () {
@@ -23,6 +21,7 @@ job('log A', function () {
 job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat ./tiny/b.log');
+  step('echo "\n$HELLO"');
 });
 
 job('echo hey', function () {
