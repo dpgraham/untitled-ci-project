@@ -49,7 +49,7 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env } = opts;
+    const { clone, env, secrets } = opts;
     this.isKilled = false;
     let clonedContainer = null;
     if (clone) {
@@ -72,10 +72,14 @@ class DockerExecutor {
 
     const stream = await exec.start({ hijack: true, stdin: false });
 
+    const secretValues = Object.values(secrets);
+
     stream.on('data', (chunk) => {
       // Log the chunk to the console
-      // TODO: redact any secrets and any suspected PII here
-      const filteredChunk = chunk.toString().replace(/[^ -~\n]/g, ''); // Allow only printable ASCII characters
+      let filteredChunk = chunk.toString().replace(/[^ -~\n]/g, ''); // Allow only printable ASCII characters
+      for (const secretValue of secretValues) {
+        filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat(secretValue.length));
+      }
       fsStream.write(filteredChunk);
     });
 

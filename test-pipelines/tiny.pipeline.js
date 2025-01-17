@@ -8,9 +8,11 @@ env('HELLO', 'WORLD!');
 
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
-  env('HELLO', 'GOODBYE')
+  env('HELLO', 'GOODBYE');
+  secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!')
   step('cat ./tiny/a.log');
   step('echo "\n$HELLO"');
+  step('echo "\n$SECRET"');
 });
 
 // job('log A', function () {
