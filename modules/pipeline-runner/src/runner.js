@@ -12,62 +12,6 @@ require('colors');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
-// Pipeline definition functions
-global.image = (imageName) => {
-  pipelineStore.getState().setImage(imageName);
-};
-
-let currentJob = null;
-
-global.job = (name, fn) => {
-  const jobDef = { name, steps: [], onFilesChanged: null };
-  currentJob = pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
-  fn(jobDef);
-  currentJob = null;
-};
-
-global.env = (name, value) => {
-  pipelineStore.getState().setEnv(name, value, currentJob);
-};
-
-global.secret = (name, value) => {
-  pipelineStore.getState().setEnv(name, value, currentJob, true);
-};
-
-global.step = (command) => {
-  pipelineStore.getState().addStep({ command });
-};
-
-global.files = (globPattern) => {
-  pipelineStore.getState().setFiles(globPattern);
-};
-
-global.ignore = (...patterns) => {
-  pipelineStore.getState().addIgnorePatterns(patterns);
-};
-
-global.output = (dir) => {
-  const state = pipelineStore.getState();
-  state.setOutputDir(dir);
-  state.addIgnorePatterns([dir]);
-};
-
-global.concurrency = (concurrency) => {
-  pipelineStore.getState().setMaxConcurrency(concurrency);
-};
-
-global.workdir = (workdir) => {
-  pipelineStore.getState().setWorkDir(workdir);
-};
-
-global.onFilesChanged = (pattern) => {
-  pipelineStore.getState().setOnFilesChanged(pattern);
-};
-
-global.group = (name) => {
-  pipelineStore.getState().setGroup(name);
-};
-
 const logger = getLogger();
 
 function buildPipeline (pipelineFile) {
@@ -247,7 +191,7 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
 // Main execution
-if (require.main === module) {
+function run ({ apiNamespace }) {
   const program = new Command();
 
   program
@@ -255,9 +199,17 @@ if (require.main === module) {
     .description('Run a pipeline')
     .argument('<file>', 'Path to the pipeline file')
     .option('--ci', 'Exit immediately when the job is done')
+    .option('--no-global-variables', 'Do not ')
     .action(async (file) => {
       const pipelineFile = path.resolve(process.cwd(), file);
       let executor;
+
+      // add the workflow syntax (image, job, etc...) to global namespace unless user opts-out
+      if (!program.opts.noGlobalVariables) {
+        for (const key of Object.keys(apiNamespace)) {
+          global[key] = apiNamespace[key];
+        }
+      }
 
       const runAndWatchPipeline = async () => {
         try {
@@ -371,3 +323,5 @@ if (require.main === module) {
 
   program.parse(process.argv);
 }
+
+module.exports = { run };
