@@ -3,8 +3,6 @@ const { run } = require('./runner');
 
 const { JOB_STATUS } = pipelineStore;
 
-// TODO: Add a modality where you don't have to set it as "global" but can import instead
-
 const apiNamespace = {};
 
 // Pipeline definition functions
