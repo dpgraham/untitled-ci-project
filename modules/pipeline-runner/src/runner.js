@@ -49,10 +49,11 @@ async function buildExecutor (pipelineFile) {
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
   const workdir = pipelineStore.getState().workDir;
+  const name = path.basename(pipelineFile); // TODO: add a name attribute to this pipeline
 
   try {
     let executor = new DockerExecutor();
-    await executor.start(currentImage, workdir);
+    await executor.start({image: currentImage, workingDir: workdir, name });
 
     // Copy files matching the glob pattern to the container
     if (files) {
@@ -113,6 +114,7 @@ async function runJob (executor, job) {
       clone: !!job.group,
       env: state.getEnv(job),
       secrets: state.getSecrets(job),
+      name: job.name,
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
@@ -125,6 +127,7 @@ async function runJob (executor, job) {
     if (err.isKilled) {
       return;
     }
+    logger.error(err);
   }
 
   // TODO: Handle a case where when the pipeline exits, the containers are all shutdown
@@ -151,6 +154,7 @@ async function runJob (executor, job) {
   }
 
   // TODO: pipelinStore.getState().setJobResult() <-- sets reason why job failed, if it did
+  // TODO: Change these next ~10 lines to use the runNextJob function
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
 

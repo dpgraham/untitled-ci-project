@@ -8,9 +8,19 @@ class DockerExecutor {
     this.container = null;
   }
 
-  async start (image, workingDir) {
-    // TODO: give the container a name indicating where the job is being run from
+  async isContainerRunning(name) {
+    const containers = await this.docker.listContainers({ all: false });
+    return containers.some(container => container.Names.includes(`/${name}`));
+  }
+
+  async start ({ image, workingDir, name }) {
+    this.containerName = name;
+    let randString = '';
+    if (this.isContainerRunning(name)) {
+      randString = '_' + Math.random().toString().substring(2, 15);
+    }
     this.container = await new GenericContainer(image)
+      .withName(this.createValidContainerName(name) + randString)
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
@@ -49,11 +59,11 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env, secrets } = opts;
+    const { clone, env, secrets, name } = opts;
     this.isKilled = false;
     let clonedContainer = null;
     if (clone) {
-      clonedContainer = await this._cloneContainer();
+      clonedContainer = await this._cloneContainer({ name });
     }
     const dockerContainer = clone ?
       clonedContainer.container :
@@ -152,13 +162,17 @@ class DockerExecutor {
     }
   }
 
-  async _cloneContainer () {
-    // TODO: when creating containers, give them names that indicate that they're
-    // being run from this application
+  createValidContainerName (name) {
+    return name.replace(/\s+/g, '_') // Replace whitespace with underscores
+               .replace(/[^a-zA-Z0-9_.-]/g, ''); // Remove invalid characters
+  }
+
+  async _cloneContainer ({ name }) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // Step 1: Create a new image from the existing container
-    const imageName = `cloned-image-${Math.random().toString(36).substring(2, 15)}`; // Generate a random image name
+    const randString = Math.random().toString().substring(2, 10);
+    const imageName = `cloned-image-${randString}`; // Generate a random image name
     await dockerContainer.commit({
       repo: imageName,
       tag: 'latest',
@@ -166,6 +180,7 @@ class DockerExecutor {
 
     // Step 2: Start a new container from the created image
     const newContainer = await new GenericContainer(imageName)
+      .withName(this.createValidContainerName(this.containerName + '_' + name + '_' + randString))
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
       .start();
