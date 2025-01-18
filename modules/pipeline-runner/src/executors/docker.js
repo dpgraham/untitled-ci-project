@@ -8,9 +8,9 @@ class DockerExecutor {
     this.container = null;
   }
 
-  async isContainerRunning(name) {
+  async isContainerRunning (name) {
     const containers = await this.docker.listContainers({ all: false });
-    return containers.some(container => container.Names.includes(`/${name}`));
+    return containers.some((container) => container.Names.includes(`/${name}`));
   }
 
   async start ({ image, workingDir, name }) {
