@@ -132,7 +132,8 @@ const pipelineStore = create((set) => ({
   getPipelineStatus: () => {
     const jobs = pipelineStore.getState().jobs;
     const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
-    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
+    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED) &&
+      jobs.every((job) => [JOB_STATUS.PASSED, JOB_STATUS.FAILED].includes(job.status));
     if (allPassed) {
       return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
     } else if (anyFailed) {

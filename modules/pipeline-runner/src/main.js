@@ -138,6 +138,10 @@ async function runJob (executor, job) {
 
   const pipelineStatus = pipelineStore.getState().getPipelineStatus();
 
+  // TODO: bug try to figure out the case where an exec is called when container paused
+
+  // TODO: add a fail strategy option that kills a group once just one has failed
+
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
@@ -147,6 +151,12 @@ async function runJob (executor, job) {
     }
     if (executor.exitOnDone) {
       await executor.stopExec();
+      /**
+       * TODO: make three ways to "exit"
+       * 1. don't exit if job running locally
+       * 2. exit via promise resolution if running from code
+       * 3. process.exit if being run from "require.main === module"
+       */
       process.exit(exitCode);
     }
     // TODO: use an NPM package that accepts user input. One that

@@ -124,6 +124,23 @@ class DockerExecutor {
 
   async stopExec () {
     this.isKilled = true;
+    if (this._isCloning) {
+      let interval;
+      let count = 0;
+      await new Promise((resolve, reject) => {
+        interval = setInterval(() => {
+          if (!this._isCloning) {
+            clearInterval(interval);
+            resolve();
+          }
+          if (++count > 4 * 30) {
+            clearInterval();
+            reject(new Error('timed out waiting for main container to stop cloning'));
+          }
+        }, 250);
+      });
+    }
+
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // kill the "sh" process which is what runs all processes
@@ -132,6 +149,8 @@ class DockerExecutor {
       AttachStdout: true,
       AttachStderr: true
     });
+
+    // TODO: bug... save "pipeline.store.js" over and over and there will be straggling jobs
 
     // Start the execution
     const killStream = await exec.start({ hijack: true, stdin: false });
@@ -168,15 +187,19 @@ class DockerExecutor {
   }
 
   async _cloneContainer ({ name }) {
+    // TODO: make it so that it doesn't copy the image for every single clone
+    // only do it for one and re-use it for all of the clones
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // Step 1: Create a new image from the existing container
+    this._isCloning = true;
     const randString = Math.random().toString().substring(2, 10);
     const imageName = `cloned-image-${randString}`; // Generate a random image name
     await dockerContainer.commit({
       repo: imageName,
       tag: 'latest',
     });
+    this._isCloning = false;
 
     // Step 2: Start a new container from the created image
     const newContainer = await new GenericContainer(imageName)
