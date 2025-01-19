@@ -150,8 +150,6 @@ class DockerExecutor {
       AttachStderr: true
     });
 
-    // TODO: bug... save "pipeline.store.js" over and over and there will be straggling jobs
-
     // Start the execution
     const killStream = await exec.start({ hijack: true, stdin: false });
     await new Promise((resolve) => {
