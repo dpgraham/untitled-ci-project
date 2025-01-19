@@ -155,7 +155,9 @@ async function runJob (executor, job) {
        * 2. exit via promise resolution if running from code
        * 3. process.exit if being run from "require.main === module"
        */
-      process.exit(exitCode);
+      if (require.main === module) {
+        process.exit(exitCode);
+      }
     }
     // TODO: use an NPM package that accepts user input. One that
     // makes it so you don't need to push enter
@@ -185,7 +187,7 @@ async function runNextJobs (executor) {
   printJobInfo(nextJobs);
 
   for await (const nextJob of nextJobs) {
-      await runJob(executor, nextJob);
+    await runJob(executor, nextJob);
   }
 }
 
@@ -222,7 +224,7 @@ async function run ({ file, opts }) {
       if (executor) {
         await executor.stop();
       }
-      process.exit(1);
+      if (require.main === module) {process.exit(1);}
     }
   };
 
@@ -292,7 +294,7 @@ async function run ({ file, opts }) {
 
   pipelineFileWatcher.on('unlink', () => {
     logger.info(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`.gray);
-    process.exit(1);
+    if (require.main === module) {process.exit(1);}
   });
 
   // Set up readline interface for user input
@@ -308,10 +310,22 @@ async function run ({ file, opts }) {
         await executor.stop();
       }
       readline.close();
-      process.exit(0);
+      if (require.main === module) {process.exit(0);}
     }
   });
 
+  if (require.main !== module) {
+    await new Promise((resolve, reject) => {
+      pipelineStore.subscribe((state) => {
+        const pipelineStatus = state.getPipelineStatus();
+        if (pipelineStatus === PIPELINE_STATUS.PASSED) {
+          executor.stopExec().then(resolve);
+        } else if (pipelineStatus === PIPELINE_STATUS.FAILED) {
+          executor.stopExec().then(reject);
+        }
+      });
+    });
+  }
 }
 
 // Main execution
