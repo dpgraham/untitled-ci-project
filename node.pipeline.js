@@ -16,7 +16,13 @@ job('dependencies', () => {
 });
 
 job('lint', () => {
+  group('tests');
   step('npm run lint');
+});
+
+job('unit-test', () => {
+  group('tests');
+  step('npm run test');
 });
 
 // group('e2e', () => {

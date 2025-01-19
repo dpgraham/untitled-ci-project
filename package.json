@@ -2,9 +2,10 @@
   "name": "untitled-ci-project",
   "version": "1.0.0",
   "description": "",
-  "main": "src/main.js",
+  "main": "modules/pipeline-runner/src/main.js",
   "scripts": {
     "test": "jest",
+    "test:watch": "jest --watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
