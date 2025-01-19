@@ -183,7 +183,7 @@ async function restartJobs (executor, filePath) {
 async function runNextJobs (executor) {
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
-  
+
   // print message indicating job(s) is/are running
   printJobInfo(nextJobs);
 
