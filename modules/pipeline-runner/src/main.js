@@ -138,8 +138,6 @@ async function runJob (executor, job) {
 
   const pipelineStatus = pipelineStore.getState().getPipelineStatus();
 
-  // TODO: bug try to figure out the case where an exec is called when container paused
-
   // TODO: add a fail strategy option that kills a group once just one has failed
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
@@ -173,6 +171,7 @@ async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
   if (hasInvalidatedAJob) {
     logger.info(`${filePath} changed. Re-running pipeline.`.gray);
+    pipelineStore.getState().enqueueJobs();
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
     await debouncedRunNextJobs(executor);
@@ -186,7 +185,7 @@ async function runNextJobs (executor) {
   printJobInfo(nextJobs);
 
   for await (const nextJob of nextJobs) {
-    await runJob(executor, nextJob);
+      await runJob(executor, nextJob);
   }
 }
 
