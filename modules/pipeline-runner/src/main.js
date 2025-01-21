@@ -187,9 +187,11 @@ async function runNextJobs (executor) {
   // print message indicating job(s) is/are running
   printJobInfo(nextJobs);
 
-  for await (const nextJob of nextJobs) {
-    await runJob(executor, nextJob);
+  const jobs = [];
+  for (const nextJob of nextJobs) {
+    jobs.push(runJob(executor, nextJob));
   }
+  await Promise.all(jobs);
 }
 
 const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
