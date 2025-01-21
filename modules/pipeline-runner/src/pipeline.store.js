@@ -160,13 +160,21 @@ const pipelineStore = create((set) => ({
     let jobs = [];
     let { maxConcurrency } = pipelineStore.getState();
     let concurrency = pipelineStore.getState().getRunningJobsCount();
+    let group;
     while (concurrency < maxConcurrency) {
       const state = pipelineStore.getState();
-      const nextJob = state.jobs.find((job) => job.status === JOB_STATUS.QUEUED); // Find the first queued job
+      const nextJob = state.jobs.find((job) => {
+        return job.status === JOB_STATUS.QUEUED &&
+          (group === job.group || !group);
+      }); // Find the first queued job
+      group = nextJob?.group;
       if (nextJob) {
         state.setJobStatus(nextJob, JOB_STATUS.RUNNING); // Set the status of the next job to JOB_STATUS.RUNNING
         concurrency++;
         jobs.push({ ...nextJob });
+        if (!group) {
+          break;
+        }
       } else {
         break;
       }
