@@ -31,7 +31,7 @@ class DockerExecutor {
   }
 
   async copyFiles (files) {
-    for (const file of files) {
+    for await (const file of files) {
       await this.container.copyFilesToContainer([{
         source: slash(file.source),
         target: slash(file.target),
@@ -41,6 +41,7 @@ class DockerExecutor {
 
   async deleteFiles (files) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
+    await this._waitForContainerToUnpause(dockerContainer);
     for (const file of files) {
       const exec = await dockerContainer.exec({
         Cmd: ['rm', slash(file.target)], // Command to delete the file
@@ -72,6 +73,8 @@ class DockerExecutor {
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
 
     const execCommand = ['sh', '-c', commands.join('; ')];
+
+    await this._waitForContainerToUnpause(dockerContainer);
     const exec = await dockerContainer.exec({
       Cmd: execCommand,
       AttachStdout: true,
@@ -144,6 +147,7 @@ class DockerExecutor {
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // kill the "sh" process which is what runs all processes
+    await this._waitForContainerToUnpause(dockerContainer);
     const exec = await dockerContainer.exec({
       Cmd: ['pkill', 'sh'], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
       AttachStdout: true,
@@ -163,7 +167,7 @@ class DockerExecutor {
     });
 
     // Kill any cloned containers
-    this._stopClonedContainers();
+    await this._stopClonedContainers();
   }
 
   async stop () {
@@ -186,7 +190,7 @@ class DockerExecutor {
 
   async _cloneContainer ({ name }) {
     // TODO: make it so that it doesn't copy the image for every single clone
-    // only do it for one and re-use it for all of the clones
+    // only do it for one and re-use it for all of the clones (maybe this isn't necessary?)
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // Step 1: Create a new image from the existing container
@@ -198,6 +202,17 @@ class DockerExecutor {
       tag: 'latest',
     });
     this._isCloning = false;
+
+    // TODO: Bug
+    /**
+     * Reproduce by
+     * 1. break a lint rule
+     * 2. unbreak it when it says "Running job: 'lint'"
+     * 3. it will still report broken
+     *
+     * Occurs when trying to restart job while a clone
+     * is in progress
+     */
 
     // Step 2: Start a new container from the created image
     const newContainer = await new GenericContainer(imageName)
@@ -222,6 +237,17 @@ class DockerExecutor {
       container.remove({ force: true }),
       this.docker.getImage(image).remove({ force: true })
     ]);
+  }
+
+  async _waitForContainerToUnpause (container) {
+    let isPaused = true;
+    while (isPaused) {
+      const containerInfo = await container.inspect();
+      isPaused = containerInfo.State.Paused;
+      if (isPaused) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second before checking again
+      }
+    }
   }
 }
 

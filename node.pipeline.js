@@ -20,6 +20,11 @@ job('lint', () => {
   step('npm run lint');
 });
 
+job('lint again', () => {
+  group('tests');
+  step('npm run lint');
+});
+
 // job('unit-test', () => {
 //   // TODO: allow individual tests to have their own image
 //   image('dind');
