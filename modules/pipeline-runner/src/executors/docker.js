@@ -65,6 +65,11 @@ class DockerExecutor {
     let clonedContainer = null;
     if (clone) {
       clonedContainer = await this._cloneContainer({ name });
+      if (!clonedContainer) {
+        const err = new Error();
+        err.isKilled = true;
+        throw err;
+      }
     }
     const dockerContainer = clone ?
       clonedContainer.container :
@@ -178,6 +183,7 @@ class DockerExecutor {
   }
 
   async _stopClonedContainers () {
+    this.clonedContainerIds.clear();
     for await (const clonedContainer of this.clonedContainers || []) {
       await this._destroyContainer(clonedContainer);
     }
@@ -196,6 +202,8 @@ class DockerExecutor {
     // Step 1: Create a new image from the existing container
     this._isCloning = true;
     const randString = Math.random().toString().substring(2, 10);
+    this.clonedContainerIds = this.clonedContainerIds || new Set();
+    this.clonedContainerIds.add(randString);
     const imageName = `cloned-image-${randString}`; // Generate a random image name
     await dockerContainer.commit({
       repo: imageName,
@@ -203,16 +211,10 @@ class DockerExecutor {
     });
     this._isCloning = false;
 
-    // TODO: Bug
-    /**
-     * Reproduce by
-     * 1. break a lint rule
-     * 2. unbreak it when it says "Running job: 'lint'"
-     * 3. it will still report broken
-     *
-     * Occurs when trying to restart job while a clone
-     * is in progress
-     */
+    if (!this.clonedContainerIds.has(randString)) {
+      this.docker.getImage(imageName).remove({ force: true });
+      return null;
+    }
 
     // Step 2: Start a new container from the created image
     const newContainer = await new GenericContainer(imageName)
@@ -221,9 +223,18 @@ class DockerExecutor {
       .withPrivilegedMode(true)
       .start();
 
+    if (!this.clonedContainerIds.has(randString)) {
+      await Promise.allSettled([
+        this.docker.getImage(imageName).remove({ force: true }),
+        newContainer.container.remove({ force: true }),
+      ]);
+      return null;
+    }
+
     const output = { container: newContainer.container, image: imageName };
     this.clonedContainers = this.clonedContainers || [];
     this.clonedContainers.push(output);
+    this.clonedContainerIds.delete(randString);
 
     return { container: newContainer.container, image: imageName };
   }
