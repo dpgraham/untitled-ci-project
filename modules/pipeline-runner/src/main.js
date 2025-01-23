@@ -131,7 +131,7 @@ async function runJob (executor, job) {
     logger.error(err);
   }
 
-  // TODO: Handle a case where when the pipeline exits, the containers are all shutdown
+  // TODO: Handle a case where when the process exits, the containers are all shutdown
 
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
@@ -161,7 +161,11 @@ async function runJob (executor, job) {
     }
     // TODO: use an NPM package that accepts user input. One that
     // makes it so you don't need to push enter
-    logger.info('\nPress "q" and Enter to quit the pipeline.'.gray);
+    if (require.main !== module) {
+      await executor?.stop(); 
+    } else {
+      logger.info('\nPress "q" and Enter to quit the pipeline.'.gray);
+    }
     return;
   }
 
