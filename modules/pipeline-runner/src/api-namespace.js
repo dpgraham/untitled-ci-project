@@ -3,13 +3,13 @@ const pipelineStore = require('./pipeline.store');
 const { JOB_STATUS } = pipelineStore;
 
 const apiNamespace = {};
+let currentJob = null;
 
 // Pipeline definition functions
 apiNamespace.image = (imageName) => {
-  pipelineStore.getState().setImage(imageName);
+  pipelineStore.getState().setImage(imageName, currentJob);
 };
 
-let currentJob = null;
 
 apiNamespace.job = (name, fn) => {
   const jobDef = { name, steps: [], onFilesChanged: null };

@@ -43,7 +43,17 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
-  setImage: (image) => set({ image }),
+  setImage: (image, job) => set((state) => produce(state, (draft) => {
+    if (!job) {
+      draft.image = image;
+      return;
+    }
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.image = image;
+      }
+    }
+  })),
   addJob: (job) => {
     set((state) => produce(state, (draft) => {
       draft.jobs.push(job);
@@ -120,8 +130,9 @@ const pipelineStore = create((set) => ({
     draft.jobs[draft.jobs.length - 1].group = group;
   })),
   setOnFilesChanged: (onFilesChanged) => set((state) => produce(state, (draft) => {
+    // TODO: use "currentJob" instead of the last job
     if (draft.jobs.length === 0) {
-      throw new Error(`Invalid pipeline. Must set "group" on a job`);
+      throw new Error(`Invalid pipeline. Must set "onFilesChanged" on a job`);
     }
     draft.jobs[draft.jobs.length - 1].onFilesChanged = onFilesChanged;
   })),

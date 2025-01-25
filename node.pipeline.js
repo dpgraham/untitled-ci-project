@@ -25,12 +25,12 @@ job('lint again', () => {
   step('npm run lint');
 });
 
-// job('unit-test', () => {
-//   // TODO: allow individual tests to have their own image
-//   image('dind');
-//   group('tests');
-//   step('npm run test');
-// });
+job('unit-test', () => {
+  // TODO: allow individual tests to have their own image
+  image('dind');
+  // group('tests');
+  // step('npm run test');
+});
 
 // group('e2e', () => {
 //   job('e2e:a', () => {
