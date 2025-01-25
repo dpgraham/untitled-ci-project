@@ -143,11 +143,11 @@ const pipelineStore = create((set) => ({
   getPipelineStatus: () => {
     const jobs = pipelineStore.getState().jobs;
     const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
-    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED) &&
-      jobs.every((job) => [JOB_STATUS.PASSED, JOB_STATUS.FAILED].includes(job.status));
+    const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
+    const noneQueued = jobs.every((job) => job.status !== JOB_STATUS.QUEUED);
     if (allPassed) {
       return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
-    } else if (anyFailed) {
+    } else if (anyFailed && noneQueued) {
       return PIPELINE_STATUS.FAILED; // Set to FAILED if at least one job is FAILED
     } else {
       return PIPELINE_STATUS.IN_PROGRESS; // Set to IN_PROGRESS otherwise

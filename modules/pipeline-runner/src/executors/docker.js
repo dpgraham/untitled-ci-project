@@ -130,7 +130,14 @@ class DockerExecutor {
     });
   }
 
+  async runService () {
+
+  }
+
+  // TODO: allow it to just kill one job here with arg { name }
   async stopExec () {
+    // TODO: instead of a general "this.isKilled", this should be
+    // a set containing a list of all the killed job names
     this.isKilled = true;
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
@@ -166,7 +173,7 @@ class DockerExecutor {
   }
 
   async _stopClonedContainers () {
-    this.clonedContainerIds.clear();
+    this.clonedContainerIds?.clear();
     for await (const clonedContainer of this.clonedContainers || []) {
       await this._destroyContainer(clonedContainer);
     }

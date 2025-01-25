@@ -175,6 +175,7 @@ async function runJob (executor, job) {
 
 async function restartJobs (executor, filePath) {
   const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
+  // TODO: call "stopExec" on jobs that have been reset
   if (hasInvalidatedAJob) {
     logger.info(`${filePath} changed. Re-running pipeline.`.gray);
     pipelineStore.getState().enqueueJobs();
@@ -256,6 +257,9 @@ async function run ({ file, opts }) {
     ignored (filepath) {
       if (path.isAbsolute(filepath)) {
         filepath = path.relative(pipelineDir, filepath);
+      }
+      if (filepath === path.relative(pipelineDir, pipelineFile)) {
+        return true;
       }
       return shouldIgnoreFilepath(filepath, ignorePatterns);
     }

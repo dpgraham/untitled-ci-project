@@ -15,6 +15,13 @@ job('dependencies', () => {
   step('npm ci --loglevel verbose');
 });
 
+// TODO: add a 'service' type of job where the exec keeps running on a cloned container
+// job('server', () => {
+//   // service();
+//   step('npm run build');
+//   step('npm start');
+// });
+
 job('lint', () => {
   group('tests');
   step('npm run lint');
