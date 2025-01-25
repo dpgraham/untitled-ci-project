@@ -134,7 +134,28 @@ class DockerExecutor {
   }
 
   // TODO: allow it to just kill one job here with arg { name }
-  async stopExec () {
+  async stopExec (name) {
+    // if no name provided, stop everything
+    if (!name) {
+      await Promise.all([
+        this.stopMainExec(),
+        this._stopClonedContainers(),
+      ]);
+    }
+
+    // if it's a subcontainer job, stop that
+    const subcontainer = this._findSubcontainerByName(name);
+    if (subcontainer) {
+      this._destroyContainer(subcontainer);
+      return null;
+    }
+
+    // TODO: add this.name attribute and check they match
+    this.stopMainExec();
+  }
+
+  async stopMainExec () {
+
     // TODO: instead of a general "this.isKilled", this should be
     // a set containing a list of all the killed job names
     this.isKilled = true;
@@ -161,9 +182,6 @@ class DockerExecutor {
         // is set
       });
     });
-
-    // Kill any cloned containers
-    await this._stopClonedContainers();
   }
 
   async stop () {
@@ -226,6 +244,16 @@ class DockerExecutor {
     }
 
     return subcontainer;
+  }
+
+  _findSubcontainerByName (name) {
+    let subcontainerToDestroy = null;
+    for (const subcontainer of this.subcontainers) {
+      if (subcontainer.name === name) {
+        subcontainerToDestroy = subcontainer;
+      }
+    }
+    return subcontainerToDestroy;
   }
 
   async _destroyContainer (subcontainer) {

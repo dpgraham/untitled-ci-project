@@ -31,7 +31,7 @@ const pipelineStore = create((set) => ({
       if (job.status === JOB_STATUS.RUNNING) {
         break;
       } else if (group) {
-        if (group === job.group) {
+        if (group === job.group && job.status === JOB_STATUS.PENDING) {
           job.status = JOB_STATUS.QUEUED;
         } else {
           break;
@@ -199,18 +199,34 @@ const pipelineStore = create((set) => ({
   resetJobs: (filepath) => {
     let invalidatedJobs = [];
     set((state) => produce(state, (draft) => {
-      for (const job of draft.jobs) {
-        // TODO: make it only change jobs to "pending" if they had files changed
-        // or if they are in a group that comes after an invalidated group
-        if (
-          !job.onFilesChanged ||
-            picomatch(job.onFilesChanged, { dot: true })(filepath) ||
-            (invalidatedJobs.length > 0)
-        ) {
+      for (let i = 0; i < draft.jobs.length; i++) {
+        let job = draft.jobs[i];
+
+        // if jobs from a previous "group" were invalidated, then
+        // invalidate all jobs from here
+        if (invalidatedJobs.length > 0) {
           if (job.status !== JOB_STATUS.PENDING) {
             invalidatedJobs.push(job.name);
             job.status = JOB_STATUS.PENDING;
           }
+          continue;
+        }
+
+        // check all the jobs in this current group (no group means a group of one)
+        // and if the filematcher matches then switch the job to "PENDING"
+        const group = job.group;
+        while (job?.group === group) {
+          if (!job.onFilesChanged || picomatch(job.onFilesChanged, { dot: true })(filepath)) {
+            if (job.status !== JOB_STATUS.PENDING) {
+              invalidatedJobs.push(job.name);
+              job.status = JOB_STATUS.PENDING;
+            }
+          }
+          if (!group) {
+            break;
+          }
+          i++;
+          job = draft.jobs[i];
         }
       }
     }));

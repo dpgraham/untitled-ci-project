@@ -26,6 +26,13 @@ job('log B', function () {
   step('echo "\n$HELLO"');
 });
 
+job('echo world', function () {
+  onFilesChanged('./tiny/c.log');
+  group('echos');
+  step('sleep 5');
+  step('echo world');
+});
+
 job('echo hey', function () {
   onFilesChanged('./tiny/a.log');
   group('echos');

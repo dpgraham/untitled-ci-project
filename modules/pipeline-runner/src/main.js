@@ -15,6 +15,14 @@ const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
+/**
+ * TODO: BUGs
+ *
+ * - sometimes "unit-test" is sometimes running after "lint again"
+ *   even when "lint again" fails
+ * - when "lint" and "lint again" fail together, the exit message is sent out twice
+ */
+
 function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
@@ -142,6 +150,7 @@ async function runJob (executor, job) {
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
+    // TODO: Do not enter here to show this message if there are other running jobs
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
       logger.info(`\nPipeline is passing`.green);
     } else {
@@ -175,16 +184,20 @@ async function runJob (executor, job) {
 
 async function restartJobs (executor, filePath) {
   const invalidatedJobs = pipelineStore.getState().resetJobs(filePath);
-  for await (const invalidatedJob of invalidatedJobs) {
-    console.log('invalidated', invalidatedJob);
-    // TODO: switch this to Promise.allSettled or .all and make it stopExec
+
+  // kill all jobs that have been invalidated
+  const promises = [];
+  for (const invalidatedJob of invalidatedJobs) {
+    promises.push(executor.stopExec(invalidatedJob));
   }
+  await Promise.all(promises);
+
+  // queue up and start running next jobs
   const hasInvalidatedAJob = invalidatedJobs.length > 0;
   if (hasInvalidatedAJob) {
     logger.info(`${filePath} changed. Re-running pipeline.`.gray);
     pipelineStore.getState().enqueueJobs();
     debouncedRunNextJobs.cancel();
-    await executor.stopExec();
     await debouncedRunNextJobs(executor);
   }
 }
