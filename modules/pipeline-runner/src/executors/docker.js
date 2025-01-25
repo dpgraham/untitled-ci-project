@@ -6,6 +6,7 @@ class DockerExecutor {
   constructor () {
     this.docker = new Docker();
     this.container = null;
+    this.subcontainers = new Map();
   }
 
   async isContainerRunning (name) {
@@ -62,17 +63,17 @@ class DockerExecutor {
   async run (commands, fsStream, opts) {
     const { clone, env, secrets, name } = opts;
     this.isKilled = false;
-    let clonedContainer = null;
+    let subcontainer = null;
     if (clone) {
-      clonedContainer = await this._cloneContainer({ name });
-      if (!clonedContainer) {
+      subcontainer = await this._cloneContainer({ name });
+      if (subcontainer === null) {
         const err = new Error();
         err.isKilled = true;
         throw err;
       }
     }
     const dockerContainer = clone ?
-      clonedContainer.container :
+      subcontainer.container.container :
       this.docker.getContainer(this.container.getId());
 
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
@@ -103,7 +104,7 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        if (!clonedContainer && this.isKilled) {
+        if (!subcontainer && this.isKilled) {
           this.isKilled = null;
           reject({ isKilled: true });
           return;
@@ -111,10 +112,8 @@ class DockerExecutor {
 
         // if it's cloned container and the container was already removed,
         // return that this "isKilled"
-        if (clonedContainer) {
-          const isKilled = !this.clonedContainers.find(({ container }) =>
-            container.id === dockerContainer.id
-          );
+        if (subcontainer) {
+          const isKilled = !this.subcontainers.has(subcontainer.id);
           if (isKilled) {
             reject({ isKilled: true });
             return;
@@ -123,8 +122,8 @@ class DockerExecutor {
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
         if (exitCode === 0) {resolve(exitCode);} else {resolve(exitCode);}
-        if (clonedContainer) {
-          this._destroyContainer(clonedContainer);
+        if (subcontainer) {
+          this._destroyContainer(subcontainer);
         }
       });
     });
@@ -140,6 +139,8 @@ class DockerExecutor {
     // a set containing a list of all the killed job names
     this.isKilled = true;
     const dockerContainer = this.docker.getContainer(this.container.getId());
+
+    // TODO: parallelize the stopping of the main process and stopping of cloned containers
 
     // kill the "sh" process which is what runs all processes
     await this._waitForContainerToUnpause(dockerContainer);
@@ -173,9 +174,8 @@ class DockerExecutor {
   }
 
   async _stopClonedContainers () {
-    this.clonedContainerIds?.clear();
-    for await (const clonedContainer of this.clonedContainers || []) {
-      await this._destroyContainer(clonedContainer);
+    for await (const [, subcontainer] of this.subcontainers || []) {
+      await this._destroyContainer(subcontainer);
     }
   }
 
@@ -189,17 +189,21 @@ class DockerExecutor {
     // only do it for one and re-use it for all of the clones (maybe this isn't necessary?)
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
+    const subcontainer = new Subcontainer();
+
     // Step 1: Create a new image from the existing container
     const randString = Math.random().toString().substring(2, 10);
-    this.clonedContainerIds = this.clonedContainerIds || new Set();
-    this.clonedContainerIds.add(randString);
+    subcontainer.setId(randString);
+    this.subcontainers.set(randString, subcontainer);
+
     const imageName = `cloned-image-${randString}`; // Generate a random image name
     await dockerContainer.commit({
       repo: imageName,
       tag: 'latest',
     });
+    subcontainer.setImage(imageName);
 
-    if (!this.clonedContainerIds.has(randString)) {
+    if (!this.subcontainers.has(subcontainer.id)) {
       this.docker.getImage(imageName).remove({ force: true });
       return null;
     }
@@ -211,7 +215,9 @@ class DockerExecutor {
       .withPrivilegedMode(true)
       .start();
 
-    if (!this.clonedContainerIds.has(randString)) {
+    subcontainer.setContainer(newContainer);
+
+    if (!this.subcontainers.has(subcontainer.id)) {
       await Promise.allSettled([
         this.docker.getImage(imageName).remove({ force: true }),
         newContainer.container.remove({ force: true }),
@@ -219,22 +225,15 @@ class DockerExecutor {
       return null;
     }
 
-    const output = { container: newContainer.container, image: imageName };
-    this.clonedContainers = this.clonedContainers || [];
-    this.clonedContainers.push(output);
-    this.clonedContainerIds.delete(randString);
-
-    return { container: newContainer.container, image: imageName };
+    return subcontainer;
   }
 
-  async _destroyContainer ({ container, image }) {
-    // Remove the entry from clonedContainers
-    this.clonedContainers = this.clonedContainers.filter(
-      (cloned) => cloned.container.id !== container.id
-    );
+  async _destroyContainer (subcontainer) {
+    // Remove the entry from subcontainers
+    this.subcontainers.delete(subcontainer.id);
     return await Promise.allSettled([
-      container.remove({ force: true }),
-      this.docker.getImage(image).remove({ force: true })
+      subcontainer?.container?.container?.remove({ force: true }),
+      subcontainer?.image && this.docker.getImage(subcontainer.image).remove({ force: true })
     ]);
   }
 
@@ -248,6 +247,13 @@ class DockerExecutor {
       }
     }
   }
+}
+
+class Subcontainer {
+  setName (name) { this.name = name; }
+  setContainer (container) { this.container = container; }
+  setImage (image) { this.image = image; }
+  setId (id) { this.id = id; }
 }
 
 module.exports = DockerExecutor;
