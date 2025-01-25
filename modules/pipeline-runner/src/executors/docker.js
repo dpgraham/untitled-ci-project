@@ -237,7 +237,7 @@ class DockerExecutor {
       const containerInfo = await container.inspect();
       isPaused = containerInfo.State.Paused;
       if (isPaused) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second before checking again
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before checking again
       }
     }
   }
