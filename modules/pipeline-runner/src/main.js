@@ -174,8 +174,12 @@ async function runJob (executor, job) {
 }
 
 async function restartJobs (executor, filePath) {
-  const hasInvalidatedAJob = pipelineStore.getState().resetJobs(filePath);
-  // TODO: call "stopExec" on jobs that have been reset
+  const invalidatedJobs = pipelineStore.getState().resetJobs(filePath);
+  for await (const invalidatedJob of invalidatedJobs) {
+    console.log('invalidated', invalidatedJob);
+    // TODO: switch this to Promise.allSettled or .all and make it stopExec
+  }
+  const hasInvalidatedAJob = invalidatedJobs.length > 0;
   if (hasInvalidatedAJob) {
     logger.info(`${filePath} changed. Re-running pipeline.`.gray);
     pipelineStore.getState().enqueueJobs();

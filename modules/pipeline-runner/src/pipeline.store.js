@@ -197,22 +197,24 @@ const pipelineStore = create((set) => ({
     return jobs.filter((job) => job.status === JOB_STATUS.RUNNING).length;
   },
   resetJobs: (filepath) => {
-    let hasInvalidatedAJob = false;
+    let invalidatedJobs = [];
     set((state) => produce(state, (draft) => {
       for (const job of draft.jobs) {
+        // TODO: make it only change jobs to "pending" if they had files changed
+        // or if they are in a group that comes after an invalidated group
         if (
           !job.onFilesChanged ||
             picomatch(job.onFilesChanged, { dot: true })(filepath) ||
-            hasInvalidatedAJob
+            (invalidatedJobs.length > 0)
         ) {
           if (job.status !== JOB_STATUS.PENDING) {
+            invalidatedJobs.push(job.name);
             job.status = JOB_STATUS.PENDING;
-            hasInvalidatedAJob = true;
           }
         }
       }
     }));
-    return hasInvalidatedAJob;
+    return invalidatedJobs;
   },
   validatePipeline: () => set((state) => produce(state, (draft) => {
     // check for duplicate job names
