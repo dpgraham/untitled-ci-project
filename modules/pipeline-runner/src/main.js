@@ -162,7 +162,7 @@ async function runJob (executor, job) {
     // TODO: use an NPM package that accepts user input. One that
     // makes it so you don't need to push enter
     if (require.main !== module) {
-      await executor?.stop(); 
+      await executor?.stop();
     } else {
       logger.info('\nPress "q" and Enter to quit the pipeline.'.gray);
     }

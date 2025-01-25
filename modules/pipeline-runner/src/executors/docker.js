@@ -132,23 +132,6 @@ class DockerExecutor {
 
   async stopExec () {
     this.isKilled = true;
-    if (this._isCloning) {
-      let interval;
-      let count = 0;
-      await new Promise((resolve, reject) => {
-        interval = setInterval(() => {
-          if (!this._isCloning) {
-            clearInterval(interval);
-            resolve();
-          }
-          if (++count > 4 * 30) {
-            clearInterval();
-            reject(new Error('timed out waiting for main container to stop cloning'));
-          }
-        }, 250);
-      });
-    }
-
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // kill the "sh" process which is what runs all processes
@@ -200,7 +183,6 @@ class DockerExecutor {
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // Step 1: Create a new image from the existing container
-    this._isCloning = true;
     const randString = Math.random().toString().substring(2, 10);
     this.clonedContainerIds = this.clonedContainerIds || new Set();
     this.clonedContainerIds.add(randString);
@@ -209,7 +191,6 @@ class DockerExecutor {
       repo: imageName,
       tag: 'latest',
     });
-    this._isCloning = false;
 
     if (!this.clonedContainerIds.has(randString)) {
       this.docker.getImage(imageName).remove({ force: true });
