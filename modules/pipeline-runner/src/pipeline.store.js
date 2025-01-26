@@ -145,9 +145,10 @@ const pipelineStore = create((set) => ({
     const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
     const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
     const noneQueued = jobs.every((job) => job.status !== JOB_STATUS.QUEUED);
-    if (allPassed) {
+    const noneRunning = jobs.every((job) => job.status !== JOB_STATUS.RUNNING);
+    if (allPassed && noneQueued && noneRunning) {
       return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
-    } else if (anyFailed && noneQueued) {
+    } else if (anyFailed && noneQueued && noneRunning) {
       return PIPELINE_STATUS.FAILED; // Set to FAILED if at least one job is FAILED
     } else {
       return PIPELINE_STATUS.IN_PROGRESS; // Set to IN_PROGRESS otherwise
@@ -199,7 +200,8 @@ const pipelineStore = create((set) => ({
   resetJobs: (filepath) => {
     let invalidatedJobs = [];
     set((state) => produce(state, (draft) => {
-      for (let i = 0; i < draft.jobs.length; i++) {
+      let i = 0;
+      while (i < draft.jobs.length) {
         let job = draft.jobs[i];
 
         // if jobs from a previous "group" were invalidated, then
@@ -209,6 +211,7 @@ const pipelineStore = create((set) => ({
             invalidatedJobs.push(job.name);
             job.status = JOB_STATUS.PENDING;
           }
+          i++;
           continue;
         }
 
@@ -222,10 +225,10 @@ const pipelineStore = create((set) => ({
               job.status = JOB_STATUS.PENDING;
             }
           }
+          i++;
           if (!group) {
             break;
           }
-          i++;
           job = draft.jobs[i];
         }
       }

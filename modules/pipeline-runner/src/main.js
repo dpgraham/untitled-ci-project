@@ -20,7 +20,6 @@ const logger = getLogger();
  *
  * - sometimes "unit-test" is sometimes running after "lint again"
  *   even when "lint again" fails
- * - when "lint" and "lint again" fail together, the exit message is sent out twice
  */
 
 function buildPipeline (pipelineFile) {
