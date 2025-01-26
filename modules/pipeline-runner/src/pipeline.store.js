@@ -103,11 +103,15 @@ const pipelineStore = create((set) => ({
     }
     return {...globalEnv, ...jobEnv};
   },
-  addStep: (step) => set((state) => produce(state, (draft) => {
-    if (draft.jobs.length === 0) {
-      throw new Error(`Invalid pipeline. "step" must be called from within a job.`);
+  addStep: (step, currentJob) => set((state) => produce(state, (draft) => {
+    if (!currentJob) {
+      throw new Error(`Error: 'step' must be called inside a 'job'`);
     }
-    draft.jobs[draft.jobs.length - 1].steps.push(step);
+    for (const job of draft.jobs) {
+      if (job.name === currentJob.name) {
+        job.steps.push(step);
+      }
+    }
   })),
   setFiles: (files) => set({ files }),
   addIgnorePatterns: (patterns) => set((state) => ({ ignorePatterns: [...state.ignorePatterns, ...patterns] })),
@@ -123,19 +127,27 @@ const pipelineStore = create((set) => ({
     }
     set({ workDir });
   },
-  setGroup: (group) => set((state) => produce(state, (draft) => {
-    if (draft.jobs.length === 0) {
-      throw new Error(`Invalid pipeline. Must set "group" on a job`);
+  setGroup: (group, currentJob) => set((state) => produce(state, (draft) => {
+    if (!currentJob) {
+      throw new Error(`Error: 'group' must be called inside a 'job'`);
     }
-    draft.jobs[draft.jobs.length - 1].group = group;
-  })),
-  setOnFilesChanged: (onFilesChanged) => set((state) => produce(state, (draft) => {
-    // TODO: use "currentJob" instead of the last job
-    if (draft.jobs.length === 0) {
-      throw new Error(`Invalid pipeline. Must set "onFilesChanged" on a job`);
+    for (const job of draft.jobs) {
+      if (job.name === currentJob.name) {
+        job.group = group;
+      }
     }
-    draft.jobs[draft.jobs.length - 1].onFilesChanged = onFilesChanged;
   })),
+  setOnFilesChanged: (onFilesChanged, currentJob) => set((state) => produce(state, (draft) => {
+    if (!currentJob) {
+      throw new Error(`Error: 'onFilesChanged' must be called inside a 'job'`);
+    }
+    for (const job of draft.jobs) {
+      if (job.name === currentJob.name) {
+        job.onFilesChanged = onFilesChanged;
+      }
+    }
+  })),
+  setExitOnDone: (exitOnDone) => set({ exitOnDone }),
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
@@ -215,7 +227,7 @@ const pipelineStore = create((set) => ({
           continue;
         }
 
-        // check all the jobs in this current group (no group means a group of one)
+        // check all the jobs in this current group (an 'undefined' group means a group of one)
         // and if the filematcher matches then switch the job to "PENDING"
         const group = job.group;
         while (job?.group === group) {

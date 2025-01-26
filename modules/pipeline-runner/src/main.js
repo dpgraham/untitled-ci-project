@@ -18,7 +18,7 @@ const logger = getLogger();
 /**
  * TODO: BUGs
  *
- * - sometimes "unit-test" is sometimes running after "lint again"
+ * - sometimes "unit-test" is running after "lint again"
  *   even when "lint again" fails
  */
 
@@ -57,7 +57,7 @@ async function buildExecutor (pipelineFile) {
   // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
   const workdir = pipelineStore.getState().workDir;
-  const name = path.basename(pipelineFile); // TODO: add a name attribute to this pipeline
+  const name = path.basename(pipelineFile);
 
   try {
     let executor = new DockerExecutor();
@@ -149,13 +149,12 @@ async function runJob (executor, job) {
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
-    // TODO: Do not enter here to show this message if there are other running jobs
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
       logger.info(`\nPipeline is passing`.green);
     } else {
       logger.error(`\nPipeline is failing`.red);
     }
-    if (executor.exitOnDone) {
+    if (pipelineStore.getState().exitOnDone) {
       await executor.stopExec();
       /**
        * TODO: make three ways to "exit"
@@ -257,7 +256,7 @@ async function run ({ file, opts }) {
     return;
   }
   executor = await buildExecutor(pipelineFile);
-  executor.exitOnDone = opts.ci || process.env.CI; // TODO: move exitOnDone from executor namespace to pipeline namespace
+  pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI));
 
   // Watch for file changes
 

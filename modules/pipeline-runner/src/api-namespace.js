@@ -27,7 +27,7 @@ apiNamespace.secret = (name, value) => {
 };
 
 apiNamespace.step = (command) => {
-  pipelineStore.getState().addStep({ command });
+  pipelineStore.getState().addStep({ command }, currentJob);
 };
 
 apiNamespace.files = (globPattern) => {
@@ -53,11 +53,11 @@ apiNamespace.workdir = (workdir) => {
 };
 
 apiNamespace.onFilesChanged = (pattern) => {
-  pipelineStore.getState().setOnFilesChanged(pattern);
+  pipelineStore.getState().setOnFilesChanged(pattern, currentJob);
 };
 
 apiNamespace.group = (name) => {
-  pipelineStore.getState().setGroup(name);
+  pipelineStore.getState().setGroup(name, currentJob);
 };
 
 module.exports = apiNamespace;

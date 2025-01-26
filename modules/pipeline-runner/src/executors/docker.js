@@ -62,7 +62,7 @@ class DockerExecutor {
 
   async run (commands, fsStream, opts) {
     const { clone, env, secrets, name } = opts;
-    this.isKilled = false;
+    this.runningJob = name;
     let subcontainer = null;
     if (clone) {
       subcontainer = await this._cloneContainer({ name });
@@ -104,8 +104,7 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
-        if (!subcontainer && this.isKilled) {
-          this.isKilled = null;
+        if (!subcontainer && !this.runningJob) {
           reject({ isKilled: true });
           return;
         }
@@ -133,7 +132,6 @@ class DockerExecutor {
 
   }
 
-  // TODO: allow it to just kill one job here with arg { name }
   async stopExec (name) {
     // if no name provided, stop everything
     if (!name) {
@@ -146,22 +144,18 @@ class DockerExecutor {
     // if it's a subcontainer job, stop that
     const subcontainer = this._findSubcontainerByName(name);
     if (subcontainer) {
-      this._destroyContainer(subcontainer);
+      await this._destroyContainer(subcontainer);
       return null;
     }
 
-    // TODO: add this.name attribute and check they match
-    this.stopMainExec();
+    if (name === this.runningJob) {
+      this.stopMainExec();
+    }
   }
 
   async stopMainExec () {
-
-    // TODO: instead of a general "this.isKilled", this should be
-    // a set containing a list of all the killed job names
-    this.isKilled = true;
+    this.runningJob = null;
     const dockerContainer = this.docker.getContainer(this.container.getId());
-
-    // TODO: parallelize the stopping of the main process and stopping of cloned containers
 
     // kill the "sh" process which is what runs all processes
     await this._waitForContainerToUnpause(dockerContainer);
