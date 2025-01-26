@@ -123,6 +123,8 @@ async function runJob (executor, job) {
       env: state.getEnv(job),
       secrets: state.getSecrets(job),
       name: job.name,
+      image: job.image,
+      copy: job.copy,
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
@@ -137,6 +139,8 @@ async function runJob (executor, job) {
     }
     logger.error(err);
   }
+
+  // TODO: does TestContainers have a way of cleaning up containers created from past runs?
 
   // TODO: Handle a case where when the process exits, the containers are all shutdown
 

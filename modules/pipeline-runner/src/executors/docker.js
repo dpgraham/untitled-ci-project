@@ -40,6 +40,11 @@ class DockerExecutor {
     }
   }
 
+  async copyBetweenContainers (sourceContainer, sourcePath, destinationContainer, destinationPath) {
+    await console.log(`TODO: copy files from sourceContainer into destinationContainer`, sourcePath, destinationPath);
+  }
+
+
   async deleteFiles (files) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
     await this._waitForContainerToUnpause(dockerContainer);
@@ -61,17 +66,23 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env, secrets, name } = opts;
+    const { clone, env, secrets, name, image, copy = [] } = opts;
     this.runningJob = name;
     let subcontainer = null;
-    if (clone) {
-      subcontainer = await this._cloneContainer({ name });
+    if (clone || image) {
+      subcontainer = await this._cloneContainer({ name, image });
       if (subcontainer === null) {
         const err = new Error();
         err.isKilled = true;
         throw err;
       }
+
+      for await (const copyFiles of copy) {
+        const { src, dest } = copyFiles;
+        await this.copyBetweenContainers(this.container.container, src, subcontainer.container.container, dest);
+      }
     }
+
     const dockerContainer = clone ?
       subcontainer.container.container :
       this.docker.getContainer(this.container.getId());
@@ -196,7 +207,7 @@ class DockerExecutor {
                .replace(/[^a-zA-Z0-9_.-]/g, ''); // Remove invalid characters
   }
 
-  async _cloneContainer ({ name }) {
+  async _cloneContainer ({ name, image }) {
     // TODO: make it so that it doesn't copy the image for every single clone
     // only do it for one and re-use it for all of the clones (maybe this isn't necessary?)
     const dockerContainer = this.docker.getContainer(this.container.getId());
@@ -208,16 +219,19 @@ class DockerExecutor {
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);
 
-    const imageName = `cloned-image-${randString}`; // Generate a random image name
-    await dockerContainer.commit({
-      repo: imageName,
-      tag: 'latest',
-    });
-    subcontainer.setImage(imageName);
+    let imageName = image;
+    if (!image) {
+      imageName = `cloned-image-${randString}`; // Generate a random image name
+      await dockerContainer.commit({
+        repo: imageName,
+        tag: 'latest',
+      });
+      subcontainer.setImage(imageName);
 
-    if (!this.subcontainers.has(subcontainer.id)) {
-      this.docker.getImage(imageName).remove({ force: true });
-      return null;
+      if (!this.subcontainers.has(subcontainer.id)) {
+        this.docker.getImage(imageName).remove({ force: true });
+        return null;
+      }
     }
 
     // Step 2: Start a new container from the created image

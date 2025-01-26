@@ -1,4 +1,4 @@
-image('node:22');
+image('node:22'); // TODO: test out private repository use case
 
 ignore('node_modules/**/*');
 ignore('.git/**/*');
@@ -6,6 +6,8 @@ ignore('.git/**/*');
 workdir('ci/');
 concurrency(3);
 output('output-ci/');
+
+// mount('src', 'dest'); // TODO: allow mounting of a docker volume
 
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
@@ -27,17 +29,20 @@ job('lint', () => {
   step('npm run lint');
 });
 
-job('lint again', () => {
+job('unit-test', () => {
+  image('docker:dind');
+  // workdir('') // TODO: allow setting workdir here too
+  copy('/ci', '/ci');
   group('tests');
-  step('npm run lint');
+  step('docker --help');
 });
 
-job('unit-test', () => {
-  // TODO: allow individual tests to have their own image
-  image('dind');
-  // group('tests');
-  // step('npm run test');
-});
+// job('commit-and-push', () => {
+//   image('<base-image>');
+//   copy('/filepath'); // TODO: copies files from the main image into this one
+//   commit('<tag-name>'); // TODO: commits this image with <tag-name>
+//   push('<docker-repo>'); // TODO: pushes this image to a Docker repository
+// });
 
 // group('e2e', () => {
 //   job('e2e:a', () => {

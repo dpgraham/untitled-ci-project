@@ -9,4 +9,6 @@ describe('main', function () {
       await run({ file, opts });
     });
   });
+
+  // TODO; figure out why still openhandles. I think maybe TestContainers needs to be closed
 });

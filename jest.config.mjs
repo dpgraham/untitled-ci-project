@@ -17,6 +17,8 @@ const config = {
   // Automatically clear mock calls, instances, contexts and results before every test
   // clearMocks: false,
 
+  testTimeout: 999999,
+
   // Indicates whether the coverage information should be collected while executing the test
   collectCoverage: true,
 

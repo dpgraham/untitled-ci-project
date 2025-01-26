@@ -60,5 +60,9 @@ apiNamespace.group = (name) => {
   pipelineStore.getState().setGroup(name, currentJob);
 };
 
+apiNamespace.copy = (src, dest) => {
+  pipelineStore.getState().addCopy(src, dest, currentJob);
+};
+
 module.exports = apiNamespace;
 module.exports.default = apiNamespace;
