@@ -60,10 +60,10 @@ const pipelineStore = create((set) => ({
     }));
     return pipelineStore.getState().jobs[pipelineStore.getState().jobs.length - 1];
   },
-  addCopy: (src, dest, currentJob) => set((state) => produce(state, (draft) => {
+  addCopy: (src, currentJob) => set((state) => produce(state, (draft) => {
     for (const job of draft.jobs) {
       if (currentJob.name === job.name) {
-        job.copy = [...(job.copy || []), { src, dest }];
+        job.copy = [...(job.copy || []), { src }];
       }
     }
   })),

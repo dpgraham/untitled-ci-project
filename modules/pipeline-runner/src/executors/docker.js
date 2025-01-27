@@ -1,6 +1,7 @@
 const { GenericContainer } = require('testcontainers');
 const Docker = require('dockerode');
 const slash = require('slash');
+const _stream = require('stream');
 
 class DockerExecutor {
   constructor () {
@@ -40,9 +41,17 @@ class DockerExecutor {
     }
   }
 
-  async copyBetweenContainers (sourceContainer, sourcePath, destinationContainer, destinationPath) {
-    await console.log(`TODO: copy files from sourceContainer into destinationContainer`, sourcePath, destinationPath);
+  async copyFilesBetweenContainers (sourceContainer, sourceFilePath, destContainer) {
+    // Step 1: Stream the file/folder from the source container
+    const archiveStream = await sourceContainer.container.getArchive({ path: sourceFilePath });
+
+    // Step 2: Send the tar archive to the destination container
+    const passthrough = new _stream.PassThrough();
+    archiveStream.pipe(passthrough);
+
+    await destContainer.container.putArchive(passthrough, { path: '/' });
   }
+
 
 
   async deleteFiles (files) {
@@ -78,8 +87,8 @@ class DockerExecutor {
       }
 
       for await (const copyFiles of copy) {
-        const { src, dest } = copyFiles;
-        await this.copyBetweenContainers(this.container.container, src, subcontainer.container.container, dest);
+        const { src } = copyFiles;
+        await this.copyFilesBetweenContainers(this.container, src, subcontainer.container);
       }
     }
 

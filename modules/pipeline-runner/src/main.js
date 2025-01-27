@@ -140,8 +140,6 @@ async function runJob (executor, job) {
     logger.error(err);
   }
 
-  // TODO: does TestContainers have a way of cleaning up containers created from past runs?
-
   // TODO: Handle a case where when the process exits, the containers are all shutdown
 
   logStream.end(); // Close the log stream

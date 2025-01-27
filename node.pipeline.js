@@ -9,6 +9,14 @@ output('output-ci/');
 
 // mount('src', 'dest'); // TODO: allow mounting of a docker volume
 
+function installNode () {
+  step(`apk add --no-cache curl`);
+  step('curl -fsSL https://deb.nodesource.com/setup_18.x | sh');
+  step('apk add --no-cache nodejs npm');
+  step('echo "installed node"');
+  step('node --version');
+}
+
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
@@ -32,9 +40,11 @@ job('lint', () => {
 job('unit-test', () => {
   image('docker:dind');
   // workdir('') // TODO: allow setting workdir here too
-  copy('/ci', '/ci');
+  copy('/ci'); // copies the files from the main container into this one
   group('tests');
-  step('docker --help');
+  installNode();
+  step('cd /ci');
+  step('npm run test');
 });
 
 // job('commit-and-push', () => {
