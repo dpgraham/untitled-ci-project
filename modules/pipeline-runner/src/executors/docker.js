@@ -3,9 +3,34 @@ const Docker = require('dockerode');
 const slash = require('slash');
 const _stream = require('stream');
 
+const env = process.env;
+
 class DockerExecutor {
   constructor () {
-    this.docker = new Docker();
+    let dockerOpts = {
+      host: env.DOCKER_HOST,
+      port: env.DOCKER_PORT,
+      socketPath: env.DOCKER_SOCKET_PATH,
+      username: env.DOCKER_USERNAME,
+      headers: env.DOCKER_HEADERS ? JSON.parse(env.DOCKER_HEADERS || '{}') : undefined,
+      ca: env.DOCKER_CA ? env.DOCKER_CA.split(',') : undefined,
+      cert: env.DOCKER_CERT ? env.DOCKER_CERT.split(',') : undefined,
+      key: env.DOCKER_KEY ? env.DOCKER_KEY.split(',') : undefined,
+      protocol: env.DOCKER_PROTOCOL,
+      timeout: env.DOCKER_TIMEOUT ? parseInt(env.DOCKER_TIMEOUT, 10) : undefined,
+      version: env.DOCKER_VERSION,
+      sshAuthAgent: env.DOCKER_SSH_AUTH_AGENT,
+      sshOptions: env.DOCKER_SSH_OPTIONS ? JSON.parse(env.DOCKER_SSH_OPTIONS || '{}') : undefined,
+    };
+
+    // Remove undefined properties from dockerOpts
+    Object.keys(dockerOpts).forEach(key => {
+      if (dockerOpts[key] === undefined) {
+        delete dockerOpts[key];
+      }
+    });
+
+    this.docker = new Docker(dockerOpts);
     this.container = null;
     this.subcontainers = new Map();
   }

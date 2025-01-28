@@ -15,13 +15,6 @@ const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
-/**
- * TODO: BUGs
- *
- * - sometimes "unit-test" is running after "lint again"
- *   even when "lint again" fails
- */
-
 function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();

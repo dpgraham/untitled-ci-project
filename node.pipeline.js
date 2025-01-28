@@ -1,4 +1,5 @@
 image('node:22'); // TODO: test out private repository use case
+// TODO: allow a Dockerfile instead of an image
 
 ignore('node_modules/**/*');
 ignore('.git/**/*');
@@ -39,6 +40,7 @@ job('lint', () => {
 
 job('unit-test', () => {
   image('docker:dind');
+  env('DOCKER_VERSION', '');
   // workdir('') // TODO: allow setting workdir here too
   copy('/ci'); // copies the files from the main container into this one
   group('tests');
