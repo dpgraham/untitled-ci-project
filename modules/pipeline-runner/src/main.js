@@ -54,6 +54,10 @@ async function buildExecutor (pipelineFile) {
 
   try {
     let executor = new DockerExecutor();
+    process.on('SIGINT', async () => {
+      await executor.abort();
+      if (require.main === module) { process.exit(1); }
+    });
     await executor.start({image: currentImage, workingDir: workdir, name });
 
     // Copy files matching the glob pattern to the container

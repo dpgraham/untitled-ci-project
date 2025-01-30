@@ -47,6 +47,7 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
+  // artifacts('/path/to/artifacts'); // TODO: Add artifacts retaining feature that grabs coverage
 });
 
 // job('commit-and-push', () => {

@@ -230,6 +230,13 @@ class DockerExecutor {
     ]);
   }
 
+  async abort () {
+    return await Promise.all([
+      this._stopClonedContainers(),
+      this.container.stop(),
+    ]);
+  }
+
   async _stopClonedContainers () {
     for await (const [, subcontainer] of this.subcontainers || []) {
       await this._destroyContainer(subcontainer);
