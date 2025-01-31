@@ -212,6 +212,13 @@ const pipelineStore = create((set) => ({
     }
     return jobs;
   },
+  setArtifactsDir: (artifactsDir, job) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.artifactsDir = artifactsDir;
+      }
+    }
+  })),
   getRunningJobsCount: () => {
     const jobs = pipelineStore.getState().jobs;
     return jobs.filter((job) => job.status === JOB_STATUS.RUNNING).length;

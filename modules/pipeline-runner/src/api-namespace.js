@@ -10,7 +10,6 @@ apiNamespace.image = (imageName) => {
   pipelineStore.getState().setImage(imageName, currentJob);
 };
 
-
 apiNamespace.job = (name, fn) => {
   const jobDef = { name, steps: [], onFilesChanged: null };
   currentJob = pipelineStore.getState().addJob({...jobDef, status: JOB_STATUS.PENDING});
@@ -62,6 +61,10 @@ apiNamespace.group = (name) => {
 
 apiNamespace.copy = (src) => {
   pipelineStore.getState().addCopy(src, currentJob);
+};
+
+apiNamespace.artifacts = (artifactsDir) => {
+  pipelineStore.getState().setArtifactsDir(artifactsDir, currentJob);
 };
 
 module.exports = apiNamespace;

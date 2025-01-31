@@ -2,6 +2,7 @@ const { GenericContainer } = require('testcontainers');
 const Docker = require('dockerode');
 const slash = require('slash');
 const _stream = require('stream');
+const fs = require('fs');
 
 const env = process.env;
 
@@ -77,8 +78,6 @@ class DockerExecutor {
     await destContainer.container.putArchive(passthrough, { path: '/' });
   }
 
-
-
   async deleteFiles (files) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
     await this._waitForContainerToUnpause(dockerContainer);
@@ -100,7 +99,7 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env, secrets, name, image, copy = [] } = opts;
+    const { clone, env, secrets, name, image, copy = [], artifactsDirSrc, artifactsDirDest } = opts;
     this.runningJob = name;
     let subcontainer = null;
     if (clone || image) {
@@ -149,6 +148,11 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
+        if (artifactsDirSrc) {
+          // TODO: add a try catch block here 
+          await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
+        }
+
         if (!subcontainer && !this.runningJob) {
           reject({ isKilled: true });
           return;
@@ -249,8 +253,6 @@ class DockerExecutor {
   }
 
   async _cloneContainer ({ name, image }) {
-    // TODO: make it so that it doesn't copy the image for every single clone
-    // only do it for one and re-use it for all of the clones (maybe this isn't necessary?)
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     const subcontainer = new Subcontainer();
@@ -323,6 +325,33 @@ class DockerExecutor {
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before checking again
       }
     }
+  }
+
+  async pullArtifacts (srcContainerDir, destHostedDir) {
+    // Step 1: Get the archive from the source container directory
+    const container = this.container.container;
+    const archiveStream = await container.getArchive({ path: srcContainerDir });
+
+    // Step 2: Create a writable stream to the destination directory on the host
+    const archiveFilepath = `${destHostedDir}/archive.tar`;
+    const destStream = fs.createWriteStream(archiveFilepath); // Create a tar file in the destination directory
+
+    // Step 3: Pipe the archive stream to the destination stream
+    archiveStream.pipe(destStream);
+
+    return new Promise((resolve, reject) => {
+      destStream.on('finish', async () => {
+        // Extract the tar file to the destination directory
+        const extract = require('tar').extract({ cwd: destHostedDir });
+        fs.createReadStream(archiveFilepath).pipe(extract)
+          .on('finish', async () => {
+            await fs.promises.rm(archiveFilepath);
+            resolve();
+          })
+          .on('error', reject);
+      });
+      destStream.on('error', reject);
+    });
   }
 }
 

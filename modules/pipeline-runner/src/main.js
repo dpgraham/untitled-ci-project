@@ -54,6 +54,8 @@ async function buildExecutor (pipelineFile) {
 
   try {
     let executor = new DockerExecutor();
+    
+    // TODO: bug... figure out why I always need to CTRL+C twice to exit
     process.on('SIGINT', async () => {
       await executor.abort();
       if (require.main === module) { process.exit(1); }
@@ -90,12 +92,21 @@ function printJobInfo (nextJobs) {
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
+  // TODO: cleanup the outputDir at the beginning of the pipeline running
+  // TODO: give the artifacts and logs output a more flat hierarchy
   const logFilePath = path.join(outputDir, 'jobs', `${job.name}.log`);
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath);
   }
-  if (!fs.existsSync(path.dirname(logFilePath))) {
-    await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
+  await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
+
+  let artifactsPathDest;
+  if (job.artifactsDir) {
+    artifactsPathDest = path.join(outputDir, 'artifacts', job.name);
+    if (fs.existsSync(artifactsPathDest)) {
+      await fs.promises.rm(artifactsPathDest, { recursive: true, force: true });
+    }
+    await fs.promises.mkdir(artifactsPathDest, { recursive: true });
   }
   pipelineStore.getState().setJobFilePath(job, logFilePath);
   if (logStreams[logFilePath]) {
@@ -122,6 +133,8 @@ async function runJob (executor, job) {
       name: job.name,
       image: job.image,
       copy: job.copy,
+      artifactsDirSrc: job.artifactsDir,
+      artifactsDirDest: artifactsPathDest,
     };
     exitCode = await executor.run(commands, logStream, opts);
     if (exitCode !== 0) {
@@ -136,8 +149,6 @@ async function runJob (executor, job) {
     }
     logger.error(err);
   }
-
-  // TODO: Handle a case where when the process exits, the containers are all shutdown
 
   logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
@@ -155,12 +166,6 @@ async function runJob (executor, job) {
     }
     if (pipelineStore.getState().exitOnDone) {
       await executor.stopExec();
-      /**
-       * TODO: make three ways to "exit"
-       * 1. don't exit if job running locally
-       * 2. exit via promise resolution if running from code
-       * 3. process.exit if being run from "require.main === module"
-       */
       if (require.main === module) {
         process.exit(exitCode);
       }

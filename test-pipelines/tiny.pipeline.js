@@ -13,6 +13,7 @@ job('log A', function () {
   step('cat ./tiny/a.log');
   step('echo "\n$HELLO"');
   step('echo "\n$SECRET"');
+  // step.returns('echo "SOMETHING'); // TODO: add an "output" feature
 });
 
 // job('log A', function () {
@@ -24,6 +25,7 @@ job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat ./tiny/b.log');
   step('echo "\n$HELLO"');
+  // step('echo {{outputs["log A"]}}');
 });
 
 job('echo world', function () {
