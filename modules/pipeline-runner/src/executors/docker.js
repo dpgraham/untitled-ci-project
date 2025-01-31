@@ -25,7 +25,7 @@ class DockerExecutor {
     };
 
     // Remove undefined properties from dockerOpts
-    Object.keys(dockerOpts).forEach(key => {
+    Object.keys(dockerOpts).forEach((key) => {
       if (dockerOpts[key] === undefined) {
         delete dockerOpts[key];
       }
@@ -149,7 +149,7 @@ class DockerExecutor {
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
         if (artifactsDirSrc) {
-          // TODO: add a try catch block here 
+          // TODO: add a try catch block here
           await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
         }
 
@@ -340,7 +340,7 @@ class DockerExecutor {
     archiveStream.pipe(destStream);
 
     return new Promise((resolve, reject) => {
-      destStream.on('finish', async () => {
+      destStream.on('finish', () => {
         // Extract the tar file to the destination directory
         const extract = require('tar').extract({ cwd: destHostedDir });
         fs.createReadStream(archiveFilepath).pipe(extract)

@@ -54,7 +54,7 @@ async function buildExecutor (pipelineFile) {
 
   try {
     let executor = new DockerExecutor();
-    
+
     // TODO: bug... figure out why I always need to CTRL+C twice to exit
     process.on('SIGINT', async () => {
       await executor.abort();
