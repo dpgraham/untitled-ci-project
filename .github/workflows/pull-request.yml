@@ -8,18 +8,16 @@ on:
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
-    # TODO: Add a job that publishes package
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-        registry-url: 'https://npm.pkg.github.com'
-        scope: '@dpgraham'
-    - run: npm install
-    - run: npx @dpgraham/carry-on ./node.pipelines.js
+    - run: npm install @dpgraham/carry-on@0.0.1
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()
