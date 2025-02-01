@@ -182,19 +182,19 @@ class DockerExecutor {
 
         // pull $CI_OUTPUT
         const ciOutput = await dockerContainer.exec({
-          Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; fi'],
+          Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
           AttachStdout: true,
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
+        let out = null;
         outputStream.on('data', (chunk) => {
           // remove first 8 bytes
           // (for reference https://github.com/moby/moby/issues/7375#issuecomment-51462963)
-          let out = chunk.toString(); // Log the CI_OUTPUT to the console
+          out = chunk.toString(); // Log the CI_OUTPUT to the console
           out = out.substr(8).trim();
-          console.log('####output placeholder', out);
+          resolve({ exitCode, output: out });
         });
-
-        if (exitCode === 0) {resolve(exitCode);} else {resolve(exitCode);}
+        
         if (subcontainer) {
           this._destroyContainer(subcontainer);
         }

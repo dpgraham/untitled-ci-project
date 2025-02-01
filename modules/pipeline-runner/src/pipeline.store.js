@@ -151,6 +151,22 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
+  setJobOutput: (output, job) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.output = output;
+      }
+    }
+  })),
+  getJobOutputs: () => {
+    const out = {};
+    for (const checkJob of pipelineStore.getState().jobs) {
+      if (checkJob.output) {
+        out[checkJob.name] = checkJob.output;
+      }
+    }
+    return out;
+  },
   setOnFilesChanged: (onFilesChanged, currentJob) => set((state) => produce(state, (draft) => {
     if (!currentJob) {
       throw new Error(`Error: 'onFilesChanged' must be called inside a 'job'`);
