@@ -12,16 +12,12 @@ jobs:
     # TODO: Add a job that publishes package
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/login@v1
-      with:
-        registry-url: 'https://npm.pkg.github.com'
-        scope: '@dpgraham' # If using scoped packages
-        token: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    - run: npm install @dpgraham/carry-on@0.0.1
+    - run: npm install
+    - run: npx @dpgraham/carry-on ./node.pipelines.js
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()
