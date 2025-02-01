@@ -47,10 +47,10 @@ class DockerExecutor {
     if (this.isContainerRunning(name)) {
       randString = '_' + Math.random().toString().substring(2, 15);
     }
-    
+
     const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
     const createOutputCommand = `mkdir -p ${outputDir}`;
-    
+
     this.container = await new GenericContainer(image)
       .withName(this.createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
@@ -178,7 +178,7 @@ class DockerExecutor {
         }
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
-        
+
 
         // pull $CI_OUTPUT
         const ciOutput = await dockerContainer.exec({
