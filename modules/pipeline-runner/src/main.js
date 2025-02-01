@@ -97,7 +97,6 @@ function printJobInfo (nextJobs) {
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
-  // TODO: give the artifacts and logs output a more flat hierarchy
   const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath, { recursive: true, force: true });

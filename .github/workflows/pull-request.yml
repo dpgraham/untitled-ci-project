@@ -10,16 +10,14 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    # TODO: Add a job that publishes package
     steps:
     - uses: actions/checkout@v2
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    # TODO: eventually, this should just install the published version of this and use that
-    - run: npm ci
-    - run: node . ./node.pipeline.js
+    - run: npm install @dpgraham/carry-on@0.0.1
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()

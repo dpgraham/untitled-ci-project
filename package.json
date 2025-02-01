@@ -1,8 +1,9 @@
 {
-  "name": "untitled-ci-project",
-  "version": "1.0.0",
+  "name": "@dpgraham/carry-on",
+  "version": "0.0.1",
   "description": "",
   "main": "modules/pipeline-runner/src/main.js",
+  "repository": "https://github.com/dpgraham/untitled-ci-project",
   "scripts": {
     "test": "jest --coverage",
     "test:watch": "jest --watch",
