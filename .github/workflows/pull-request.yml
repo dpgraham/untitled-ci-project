@@ -8,11 +8,15 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     # TODO: Add a job that publishes package
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/login@v1
+      with:
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@dpgraham' # If using scoped packages
+        token: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
