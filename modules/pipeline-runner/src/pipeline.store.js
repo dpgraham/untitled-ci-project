@@ -10,6 +10,13 @@ const JOB_STATUS = {
   FAILED: 'failed',
 };
 
+const JOB_RESULT = {
+  PASSED: 'passed',
+  FAILED: 'failed',
+  SKIPPED: 'skipped',
+  TIMEOUT: 'timeout',
+};
+
 const PIPELINE_STATUS = {
   IN_PROGRESS: 'in progress',
   PASSED: 'passed',
@@ -180,6 +187,13 @@ const pipelineStore = create((set) => ({
       }
     }
   })),
+  setJobResult: (job, result) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.result = result;
+      }
+    }
+  })),
   setJobFilePath: (job, filePath) => set((state) => produce(state, (draft) => {
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
@@ -216,6 +230,15 @@ const pipelineStore = create((set) => ({
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
         checkJob.artifactsDir = artifactsDir;
+      }
+    }
+  })),
+  setSkip: (job) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.skip = true;
+        checkJob.status = JOB_STATUS.PASSED;
+        checkJob.reason = JOB_RESULT.SKIPPED;
       }
     }
   })),
@@ -286,4 +309,5 @@ const pipelineStore = create((set) => ({
 
 module.exports = pipelineStore;
 module.exports.JOB_STATUS = JOB_STATUS;
+module.exports.JOB_RESULT = JOB_RESULT;
 module.exports.PIPELINE_STATUS = PIPELINE_STATUS;

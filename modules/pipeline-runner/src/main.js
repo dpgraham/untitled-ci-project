@@ -11,7 +11,7 @@ const { getLogger } = require('./logger');
 const apiNamespace = require('./api-namespace');
 require('colors');
 
-const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
+const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
@@ -160,8 +160,10 @@ async function runJob (executor, job) {
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
+      pipelineStore.getState().setJobResult(job, JOB_RESULT.PASSED);
       logger.info(`\nPipeline is passing`.green);
     } else {
+      pipelineStore.getState().setJobResult(job, JOB_RESULT.FAILED);
       logger.error(`\nPipeline is failing`.red);
     }
     if (pipelineStore.getState().exitOnDone) {
@@ -180,7 +182,6 @@ async function runJob (executor, job) {
     return;
   }
 
-  // TODO: pipelinStore.getState().setJobResult() <-- sets reason why job failed, if it did
   await runNextJobs(executor);
 }
 

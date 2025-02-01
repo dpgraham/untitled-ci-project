@@ -149,8 +149,11 @@ class DockerExecutor {
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
         if (artifactsDirSrc) {
-          // TODO: add a try catch block here
-          await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
+          try {
+            await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
+          } catch (e) {
+            reject('failed to pull artifacts');
+          }
         }
 
         if (!subcontainer && !this.runningJob) {

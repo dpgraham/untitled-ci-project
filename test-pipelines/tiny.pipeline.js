@@ -21,6 +21,12 @@ job('log A', function () {
 //   step('cat ./tiny/a.log');
 // });
 
+job('skip me', function () {
+  skip();
+  step('echo "if you are seeing this it failed to skip"');
+  step('exit 1');
+});
+
 job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat ./tiny/b.log');

@@ -67,5 +67,9 @@ apiNamespace.artifacts = (artifactsDir) => {
   pipelineStore.getState().setArtifactsDir(artifactsDir, currentJob);
 };
 
+apiNamespace.skip = () => {
+  pipelineStore.getState().setSkip(currentJob);
+};
+
 module.exports = apiNamespace;
 module.exports.default = apiNamespace;
