@@ -35,6 +35,10 @@ function buildPipeline (pipelineFile) {
     return new Error('invalid pipeline');
   }
 
+  // clear output directories
+  const { outputDir } = pipelineStore.getState();
+  fs.rmSync(outputDir, { force: true, recursive: true });
+
   const { image: currentImage } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
@@ -92,9 +96,8 @@ function printJobInfo (nextJobs) {
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
-  // TODO: cleanup the outputDir at the beginning of the pipeline running
   // TODO: give the artifacts and logs output a more flat hierarchy
-  const logFilePath = path.join(outputDir, 'jobs', `${job.name}.log`);
+  const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath);
   }
@@ -102,7 +105,7 @@ async function runJob (executor, job) {
 
   let artifactsPathDest;
   if (job.artifactsDir) {
-    artifactsPathDest = path.join(outputDir, 'artifacts', job.name);
+    artifactsPathDest = path.join(outputDir, 'jobs', job.name, 'artifacts');
     if (fs.existsSync(artifactsPathDest)) {
       await fs.promises.rm(artifactsPathDest, { recursive: true, force: true });
     }
