@@ -71,5 +71,9 @@ apiNamespace.skip = () => {
   pipelineStore.getState().setSkip(currentJob);
 };
 
+apiNamespace.service = () => {
+  pipelineStore.getState().setIsServer(currentJob);
+};
+
 module.exports = apiNamespace;
 module.exports.default = apiNamespace;

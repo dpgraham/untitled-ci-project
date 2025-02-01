@@ -9,16 +9,16 @@ env('HELLO', 'WORLD!');
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');
-  secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!')
+  secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!');
   step('cat ./tiny/a.log');
   step('echo "\n$HELLO"');
   step('echo "\n$SECRET"');
-  // step.returns('echo "SOMETHING'); // TODO: add an "output" feature
+  step('echo "test=hello" >> "$CI_OUTPUT"');
 });
 
-// job('log A', function () {
-//   onFilesChanged('./tiny/a.log');
-//   step('cat ./tiny/a.log');
+// job('tailing service', function () {
+//   service();
+//   step('tail "/ci-output/jobs/log A/logs.log"');
 // });
 
 job('skip me', function () {
@@ -31,6 +31,7 @@ job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat ./tiny/b.log');
   step('echo "\n$HELLO"');
+  // passingCondition((exitCode, stdErr, stdOut) => {}); // TODO: Add a passingCondition functionality
   // step('echo {{outputs["log A"]}}');
 });
 

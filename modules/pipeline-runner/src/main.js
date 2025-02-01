@@ -99,7 +99,7 @@ async function runJob (executor, job) {
   // TODO: give the artifacts and logs output a more flat hierarchy
   const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
   if (fs.existsSync(logFilePath)) {
-    await fs.promises.rm(logFilePath);
+    await fs.promises.rm(logFilePath, { force: true });
   }
   await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
 

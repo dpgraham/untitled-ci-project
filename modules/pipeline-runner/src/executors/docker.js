@@ -47,12 +47,17 @@ class DockerExecutor {
     if (this.isContainerRunning(name)) {
       randString = '_' + Math.random().toString().substring(2, 15);
     }
+    
+    const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
+    const createOutputCommand = `mkdir -p ${outputDir}`;
+    
     this.container = await new GenericContainer(image)
       .withName(this.createValidContainerName(name) + randString)
+      .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
-      .withCommand(['sh', '-c', "echo 'Container is ready' && tail -f /dev/null"])
+      .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
 
     return this.container;
@@ -120,9 +125,9 @@ class DockerExecutor {
       subcontainer.container.container :
       this.docker.getContainer(this.container.getId());
 
-    const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
-
     const execCommand = ['sh', '-c', commands.join('; ')];
+
+    const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
 
     await this._waitForContainerToUnpause(dockerContainer);
     const exec = await dockerContainer.exec({
@@ -148,6 +153,7 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
+        // pull out the artifacts, if there are any
         if (artifactsDirSrc) {
           try {
             await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
@@ -172,6 +178,22 @@ class DockerExecutor {
         }
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
+        
+
+        // pull $CI_OUTPUT
+        const ciOutput = await dockerContainer.exec({
+          Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; fi'],
+          AttachStdout: true,
+        });
+        const outputStream = await ciOutput.start({ hijack: true, stdin: false });
+        outputStream.on('data', (chunk) => {
+          // remove first 8 bytes
+          // (for reference https://github.com/moby/moby/issues/7375#issuecomment-51462963)
+          let out = chunk.toString(); // Log the CI_OUTPUT to the console
+          out = out.substr(8).trim();
+          console.log('####output placeholder', out);
+        });
+
         if (exitCode === 0) {resolve(exitCode);} else {resolve(exitCode);}
         if (subcontainer) {
           this._destroyContainer(subcontainer);
