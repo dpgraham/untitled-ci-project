@@ -13,8 +13,6 @@ require('dotenv').config();
 
 secret('GH_NPM_TOKEN', process.env.GH_NPM_TOKEN);
 
-// mount('src', 'dest'); // TODO: allow mounting of a docker volume
-
 function installNode () {
   step(`apk add --no-cache curl`);
   step('curl -fsSL https://deb.nodesource.com/setup_18.x | sh');

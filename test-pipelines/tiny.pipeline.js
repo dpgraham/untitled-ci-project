@@ -4,13 +4,8 @@ concurrency(2);
 
 ignore('./tiny/ignore/**/*');
 
-// TODO: bug... run tiny.pipeline and then save a.log a few seconds after starting it,
-// this will cause some jobs to be run more than once
-
 env('HELLO', 'WORLD!');
 
-// TODO: have 'job' return {{ output.[log A] }}
-// const { output: outputLogA } = job('log A', function () {
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');
@@ -27,7 +22,6 @@ job('log A', function () {
 // });
 
 job('skip me', function () {
-  // TODO: bug... make it so this job is always completed and doesn't get restarted
   skip();
   step('echo "if you are seeing this it failed to skip"');
   step('exit 1');

@@ -12,6 +12,7 @@ const { getLogger } = require('./logger');
 const apiNamespace = require('./api-namespace');
 require('colors');
 const Handlebars = require('handlebars');
+const { select } = require('@inquirer/prompts');
 
 const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
@@ -85,6 +86,7 @@ async function buildExecutor (pipelineFile) {
 }
 
 const logStreams = {};
+let selectPromise;
 
 function printJobInfo (nextJobs) {
   const jobNames = nextJobs.map(({name}) => name);
@@ -170,10 +172,10 @@ async function runJob (executor, job) {
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
       pipelineStore.getState().setJobResult(job, JOB_RESULT.PASSED);
-      logger.info(`\nPipeline is passing`.green);
+      logger.info(`\nPipeline is passing\n`.green);
     } else {
       pipelineStore.getState().setJobResult(job, JOB_RESULT.FAILED);
-      logger.error(`\nPipeline is failing`.red);
+      logger.error(`\nPipeline is failing\n`.red);
     }
     if (pipelineStore.getState().exitOnDone) {
       await executor.stopExec();
@@ -181,12 +183,26 @@ async function runJob (executor, job) {
         process.exit(exitCode);
       }
     }
-    // TODO: use an NPM package that accepts user input. One that
-    // makes it so you don't need to push enter
     if (require.main !== module) {
       await executor?.stop();
     } else {
-      logger.info('\nPress "q" and Enter to quit the pipeline.'.gray);
+      selectPromise = select({
+        message: 'Select next action',
+        choices: [
+          { name: 'quit', value: 'quit', description: 'Exit pipeline' },
+          // { name: 're-run', value: 'rerun', description: 'Re-run pipeline from beginning' },
+        ],
+      });
+      try {
+        const selection = await selectPromise;
+        if (selection === 'quit') {
+          logger.info('Stopping executor and exiting pipeline...'.gray);
+          await executor?.stop();
+          if (require.main === module) { process.exit(0); }
+        }
+      } catch (e) {
+        // prompt was cancelled if we reach here. do nothing.
+      }
     }
     return;
   }
@@ -215,6 +231,7 @@ async function restartJobs (executor, filePath) {
 }
 
 async function runNextJobs (executor) {
+  selectPromise?.cancel();
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
 
@@ -337,23 +354,6 @@ async function run ({ file, opts }) {
     if (require.main === module) {process.exit(1);}
   });
 
-  // Set up readline interface for user input
-  const readline = require('readline').createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  readline.on('line', async (input) => {
-    if (input.toLowerCase() === 'q') {
-      logger.info('Stopping executor and exiting pipeline...'.gray);
-      if (executor) {
-        await executor.stop();
-      }
-      readline.close();
-      if (require.main === module) {process.exit(0);}
-    }
-  });
-
   if (require.main !== module) {
     await new Promise((resolve, reject) => {
       pipelineStore.subscribe((state) => {
@@ -377,6 +377,7 @@ function main () {
     .description('Run a pipeline')
     .argument('<file>', 'Path to the pipeline file')
     .option('--ci', 'Exit immediately when the job is done')
+    // TODO: .option('--version', 'Print the version of Carry-On')
     .option('--no-global-variables', 'Do not make Carry-On variables available in global namespace')
     .action((file) => run({ file, opts: program.opts() }));
 
