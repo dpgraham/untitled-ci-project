@@ -73,7 +73,7 @@ async function buildExecutor (pipelineFile) {
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       const filesToCopy = filesArr.map((file) => ({
         source: path.join(pipelineDir, file),
-        target: path.join(workdir, file),
+        target: path.join(workdir, path.relative(files, file)),
       }));
       await executor.copyFiles(filesToCopy);
     }
@@ -300,7 +300,7 @@ async function run ({ file, opts }) {
     await executor.copyFiles([
       {
         source: path.join(path.dirname(pipelineFile), filePath),
-        target: path.join(workDir, path.normalize(filePath)),
+        target: path.join(workDir, path.relative(files, filePath)),
       },
     ]);
     restartJobs(executor, filePath);
@@ -310,7 +310,7 @@ async function run ({ file, opts }) {
     filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
     const { workDir } = pipelineStore.getState();
     await executor.deleteFiles([{
-      target: path.join(workDir, path.normalize(filePath)),
+      target: path.join(workDir, path.relative(files, filePath)),
     }]);
     restartJobs(executor, filePath);
   });

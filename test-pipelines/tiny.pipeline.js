@@ -12,7 +12,7 @@ job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');
   secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!');
-  step('cat ./tiny/a.log');
+  step('cat a.log');
   step('echo "\n$HELLO"');
   step('echo "\n$SECRET"');
   step('echo "Smash Mouth" >> "$CI_OUTPUT"');
@@ -24,6 +24,7 @@ job('log A', function () {
 // });
 
 job('skip me', function () {
+  // TODO: bug... make it so this job is always completed and doesn't get restarted
   skip();
   step('echo "if you are seeing this it failed to skip"');
   step('exit 1');
@@ -31,14 +32,14 @@ job('skip me', function () {
 
 job('log B', function () {
   onFilesChanged('./tiny/b.log');
-  step('cat ./tiny/b.log');
+  step('cat b.log');
   step('echo "\n$HELLO"');
   step('if [ "{{output.[log A]}}" != "Smash Mouth" ]; then exit 3; fi');
   // passingCondition((exitCode, stdErr, stdOut) => {}); // TODO: Add a passingCondition functionality
 });
 
 job('echo world', function () {
-  onFilesChanged('./tiny/c.log');
+  onFilesChanged('c.log');
   group('echos');
   step('sleep 5');
   step('echo world');

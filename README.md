@@ -1,5 +1,5 @@
 # MY CI/CD (WORKING TITLE)
-
+# TODO: RENAME EVERYTHING TO CARRY-ON
 A CI/CD platform that brings CI/CD into your laptop. No more commit, push + wait. Run your pipelines
 anywhere. No more vendor lock-in.
 

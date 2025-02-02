@@ -2,6 +2,7 @@ image('node:22'); // TODO: test out private repository use case
 // TODO: allow a Dockerfile instead of an image
 
 ignore('node_modules/**/*');
+ignore('**/node_modules/**/*')
 ignore('.git/**/*');
 
 workdir('ci/');

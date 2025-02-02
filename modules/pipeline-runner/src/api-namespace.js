@@ -17,6 +17,7 @@ apiNamespace.job = (name, fn) => {
   currentJob = null;
 };
 
+// TODO: if env or secret are empty it should throw an error
 apiNamespace.env = (name, value) => {
   pipelineStore.getState().setEnv(name, value, currentJob);
 };

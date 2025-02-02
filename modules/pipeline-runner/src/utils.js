@@ -19,7 +19,7 @@ function getFiles (files, rootDir, ignorePatterns) {
   }
 
   filesArr = filesArr.filter((filePath) => {
-    return !shouldIgnoreFilepath(filePath, ignorePatterns);
+    return !shouldIgnoreFilepath(path.relative(files, filePath), ignorePatterns);
   });
 
   return filesArr;
