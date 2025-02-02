@@ -197,7 +197,8 @@ const pipelineStore = create((set) => ({
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
   getPipelineStatus: () => {
-    const jobs = pipelineStore.getState().jobs;
+    let jobs = pipelineStore.getState().jobs;
+    jobs = jobs.filter((job) => !job.skip);
     const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
     const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
     const noneQueued = jobs.every((job) => job.status !== JOB_STATUS.QUEUED);
