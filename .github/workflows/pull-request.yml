@@ -20,7 +20,7 @@ jobs:
     - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_NPM_TOKEN }}" > ~/.npmrc
     - run: echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc
     - run: npm install
-    - run: npx @dp
+    - run: npx @dpgraham/carry-on ./node.pipeline.js
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()
