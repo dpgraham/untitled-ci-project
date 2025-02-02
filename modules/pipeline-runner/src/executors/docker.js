@@ -50,13 +50,14 @@ class DockerExecutor {
 
     const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
     const createOutputCommand = `mkdir -p ${outputDir}`;
+    const imageName = typeof image === 'string' ? image : image.name;
 
-    this.container = await new GenericContainer(image)
+    this.container = await new GenericContainer(imageName)
       .withName(this.createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
-      .withPrivilegedMode(true)
+      .withPrivilegedMode()
       .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
 

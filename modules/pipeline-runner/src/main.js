@@ -95,6 +95,7 @@ function printJobInfo (nextJobs) {
   } else if (jobNames.length === 1) {
     logger.info(`Running job: '${jobNames[0]}'`.blue);
   }
+  // TODO: when a job is running, show dot indicator for progress + prevent timeouts
 }
 
 async function runJob (executor, job) {

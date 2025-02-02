@@ -1,4 +1,4 @@
-image('node:22'); // TODO: test out private repository use case
+image('node:22');
 // TODO: allow a Dockerfile instead of an image
 
 ignore('node_modules/**/*');
