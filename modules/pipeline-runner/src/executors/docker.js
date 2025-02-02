@@ -207,11 +207,12 @@ class DockerExecutor {
 
   async stopExec (name) {
     // if no name provided, stop everything
-    if (!name) {
+    if (this.runningJob === name) {
       await Promise.all([
         this.stopMainExec(),
         this._stopClonedContainers(),
       ]);
+      return;
     }
 
     // if it's a subcontainer job, stop that
@@ -219,10 +220,6 @@ class DockerExecutor {
     if (subcontainer) {
       await this._destroyContainer(subcontainer);
       return null;
-    }
-
-    if (name === this.runningJob) {
-      this.stopMainExec();
     }
   }
 

@@ -34,19 +34,33 @@ const pipelineStore = create((set) => ({
   workDir: '/ci',
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
-    for (const job of draft.jobs) {
-      if (job.status === JOB_STATUS.RUNNING) {
-        break;
-      } else if (group) {
-        if (group === job.group && job.status === JOB_STATUS.PENDING) {
-          job.status = JOB_STATUS.QUEUED;
-        } else {
-          break;
+
+    // if there are any failed jobs, do not enqueue any more, the pipeline is dead
+    const failingJob = draft.jobs.find((job) => job.status === JOB_STATUS.FAILED);
+    if (failingJob) {
+      return;
+    }
+
+    const queuedJob = draft.jobs.find((job) => job.status === JOB_STATUS.QUEUED);
+    if (queuedJob) {
+      return;
+    }
+
+    // find the first job in the group that is "pending" and change it to "queued"
+    const pendingJob = draft.jobs.find((job) => job.status === JOB_STATUS.PENDING && job.result !== JOB_RESULT.SKIPPED);
+    if (pendingJob) {
+      group = pendingJob.group;
+      pendingJob.status = JOB_STATUS.QUEUED;
+    }
+
+    // any other jobs in the group need to be queued to
+    if (group) {
+      for (const job of draft.jobs) {
+        if (job.group === group) {
+          if (job.status === JOB_STATUS.PENDING) {
+            job.status = JOB_STATUS.QUEUED;
+          }
         }
-      } else if (job.status === JOB_STATUS.PENDING) {
-        job.status = JOB_STATUS.QUEUED;
-        group = job.group;
-        if (!group) {break;}
       }
     }
   })),
