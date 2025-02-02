@@ -230,7 +230,7 @@ const pipelineStore = create((set) => ({
       }); // Find the first queued job
       group = nextJob?.group;
       if (nextJob) {
-        state.setJobStatus(nextJob, JOB_STATUS.RUNNING); // Set the status of the next job to JOB_STATUS.RUNNING
+        state.setJobStatus(nextJob, JOB_STATUS.RUNNING);
         concurrency++;
         jobs.push({ ...nextJob });
         if (!group) {
@@ -254,7 +254,7 @@ const pipelineStore = create((set) => ({
       if (checkJob.name === job.name) {
         checkJob.skip = true;
         checkJob.status = JOB_STATUS.PASSED;
-        checkJob.reason = JOB_RESULT.SKIPPED;
+        checkJob.result = JOB_RESULT.SKIPPED;
       }
     }
   })),
@@ -272,7 +272,7 @@ const pipelineStore = create((set) => ({
         // if jobs from a previous "group" were invalidated, then
         // invalidate all jobs from here
         if (invalidatedJobs.length > 0) {
-          if (job.status !== JOB_STATUS.PENDING) {
+          if (job.status !== JOB_STATUS.PENDING && job.result !== JOB_RESULT.SKIPPED) {
             invalidatedJobs.push(job.name);
             job.status = JOB_STATUS.PENDING;
           }

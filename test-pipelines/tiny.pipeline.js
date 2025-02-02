@@ -4,6 +4,9 @@ concurrency(2);
 
 ignore('./tiny/ignore/**/*');
 
+// TODO: bug... run tiny.pipeline and then save a.log a few seconds after starting it,
+// this will cause some jobs to be run more than once
+
 env('HELLO', 'WORLD!');
 
 // TODO: have 'job' return {{ output.[log A] }}
