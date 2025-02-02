@@ -8,6 +8,10 @@ workdir('ci/');
 concurrency(3);
 output('output-ci/');
 
+require('dotenv').config();
+
+secret('GH_NPM_TOKEN', process.env.GH_NPM_TOKEN);
+
 // mount('src', 'dest'); // TODO: allow mounting of a docker volume
 
 function installNode () {
@@ -18,11 +22,17 @@ function installNode () {
   step('node --version');
 }
 
+function loginGithubActionsNpmPackages () {
+  step('echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc');
+  step('echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc');
+}
+
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
 job('dependencies', () => {
   onFilesChanged('package*.json');
+  loginGithubActionsNpmPackages();
   step('npm ci --loglevel verbose');
 });
 

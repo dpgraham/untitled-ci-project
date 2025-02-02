@@ -35,7 +35,6 @@ job('log B', function () {
   step('echo "\n$HELLO"');
   step('if [ "{{output.[log A]}}" != "Smash Mouth" ]; then exit 3; fi');
   // passingCondition((exitCode, stdErr, stdOut) => {}); // TODO: Add a passingCondition functionality
-  // step('echo {{outputs["log A"]}}');
 });
 
 job('echo world', function () {

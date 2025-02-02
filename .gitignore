@@ -2,3 +2,4 @@ node_modules/
 coverage/
 ci-output/
 output-ci/
+.env
