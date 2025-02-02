@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const path = require('path');
 const DockerExecutor = require('./executors/docker');
 const pipelineStore = require('./pipeline.store');

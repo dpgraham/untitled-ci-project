@@ -194,7 +194,7 @@ class DockerExecutor {
           out = out.substr(8).trim();
           resolve({ exitCode, output: out });
         });
-        
+
         if (subcontainer) {
           this._destroyContainer(subcontainer);
         }
