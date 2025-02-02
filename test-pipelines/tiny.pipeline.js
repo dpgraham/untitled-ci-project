@@ -6,6 +6,8 @@ ignore('./tiny/ignore/**/*');
 
 env('HELLO', 'WORLD!');
 
+// TODO: have 'job' return {{ output.[log A] }}
+// const { output: outputLogA } = job('log A', function () {
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');
@@ -13,7 +15,7 @@ job('log A', function () {
   step('cat ./tiny/a.log');
   step('echo "\n$HELLO"');
   step('echo "\n$SECRET"');
-  step('echo "test=hello" >> "$CI_OUTPUT"');
+  step('echo "Smash Mouth" >> "$CI_OUTPUT"');
 });
 
 // job('tailing service', function () {
@@ -31,8 +33,8 @@ job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat ./tiny/b.log');
   step('echo "\n$HELLO"');
+  step('if [ "{{output.[log A]}}" != "Smash Mouth" ]; then exit 3; fi');
   // passingCondition((exitCode, stdErr, stdOut) => {}); // TODO: Add a passingCondition functionality
-  // step('echo {{outputs["log A"]}}');
 });
 
 job('echo world', function () {

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const path = require('path');
 const DockerExecutor = require('./executors/docker');
 const pipelineStore = require('./pipeline.store');
@@ -10,6 +11,7 @@ const { getFiles, shouldIgnoreFilepath } = require('./utils');
 const { getLogger } = require('./logger');
 const apiNamespace = require('./api-namespace');
 require('colors');
+const Handlebars = require('handlebars');
 
 const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
@@ -96,10 +98,9 @@ function printJobInfo (nextJobs) {
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
-  // TODO: give the artifacts and logs output a more flat hierarchy
   const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
   if (fs.existsSync(logFilePath)) {
-    await fs.promises.rm(logFilePath, { force: true });
+    await fs.promises.rm(logFilePath, { recursive: true, force: true });
   }
   await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
 
@@ -121,8 +122,9 @@ async function runJob (executor, job) {
 
   // group the steps into one array of commands
   const commands = [];
+  const output = pipelineStore.getState().getJobOutputs();
   for (const step of job.steps) {
-    commands.push(step.command);
+    commands.push(Handlebars.compile(step.command)({ output }));
   }
 
   let exitCode;
@@ -139,11 +141,15 @@ async function runJob (executor, job) {
       artifactsDirSrc: job.artifactsDir,
       artifactsDirDest: artifactsPathDest,
     };
-    exitCode = await executor.run(commands, logStream, opts);
+    const runOutput = await executor.run(commands, logStream, opts);
+    exitCode = runOutput.exitCode;
     if (exitCode !== 0) {
       // TODO: add emoji prefixes to all of the loggers to make it more colorful
       logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
     } else {
+      if (runOutput.output) {
+        pipelineStore.getState().setJobOutput(runOutput.output, job);
+      }
       logger.info(`Job '${job.name}' passed.`.green);
     }
   } catch (err) {

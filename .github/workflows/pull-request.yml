@@ -6,20 +6,22 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  GH_NPM_TOKEN: '${{ secrets.GH_NPM_TOKEN }}'
+  
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    # TODO: eventually, this should just install the published version of this and use that
-    - run: npm ci
-    - run: node . ./node.pipeline.js
+    - run: echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc
+    - run: echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc
+    - run: npm install
+    - run: npx @dpgraham/carry-on ./node.pipeline.js
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()
