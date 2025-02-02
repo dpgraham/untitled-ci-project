@@ -146,7 +146,7 @@ class DockerExecutor {
       // Log the chunk to the console
       let filteredChunk = chunk.toString().replace(/[^ -~\n]/g, ''); // Allow only printable ASCII characters
       for (const secretValue of secretValues) {
-        filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat(secretValue.length));
+        filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat((secretValue || '').length));
       }
       fsStream.write(filteredChunk);
     });
