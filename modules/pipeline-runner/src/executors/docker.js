@@ -209,7 +209,7 @@ class DockerExecutor {
 
   async stopExec (name) {
     // if no name provided, stop everything
-    if (this.runningJob === name) {
+    if (this.runningJob === name || !name) {
       await Promise.all([
         this.stopMainExec(),
         this._stopClonedContainers(),
@@ -287,7 +287,7 @@ class DockerExecutor {
 
     let imageName = image;
     if (!image) {
-      imageName = `cloned-image-${randString}`; // Generate a random image name
+      imageName = randString; // Generate a random image name
       await dockerContainer.commit({
         repo: imageName,
         tag: 'latest',

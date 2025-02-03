@@ -6,10 +6,6 @@ ignore('./tiny/ignore/**/*');
 
 env('HELLO', 'WORLD!');
 
-// TODO: these two should point to local .env files...
-// maybe make these part of the stdlib?
-// envFile('/path/to/env/file'); 
-
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');

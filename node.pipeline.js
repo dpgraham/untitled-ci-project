@@ -1,6 +1,4 @@
 image('node:22');
-// TODO: allow a Dockerfile instead of an image
-
 ignore('node_modules/**/*');
 ignore('**/node_modules/**/*')
 ignore('.git/**/*');

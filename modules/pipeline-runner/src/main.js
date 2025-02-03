@@ -32,6 +32,11 @@ async function buildPipeline (pipelineFile) {
     return new Error(`invalid pipeline`);
   }
 
+  // close any open log streams
+  for (const logStream of Object.keys(logStreams)) {
+    logStreams[logStream].end();
+  }
+
   pipelineStore.getState().validatePipeline();
   const { isInvalidPipeline, invalidReason } = pipelineStore.getState();
   if (isInvalidPipeline) {
@@ -44,7 +49,7 @@ async function buildPipeline (pipelineFile) {
   try {
     await fs.promises.rm(outputDir, { force: true, recursive: true });
   } catch (e) {
-    // TODO: bug.. this is a stopgap, fix this problem.
+    logger.error(`Failed to delete ${outputDir}`);
   }
 
   const { image: currentImage } = pipelineStore.getState();
@@ -192,6 +197,9 @@ async function runJob (executor, job) {
     if (require.main !== module) {
       await executor?.stop();
     } else {
+      if (selectPromise) {
+        selectPromise.cancel();
+      }
       selectPromise = select({
         message: 'Select next action',
         choices: [
@@ -322,6 +330,7 @@ async function run ({ file, opts }) {
   });
 
   watcher.on('change', async (filePath) => {
+
     const { workDir } = pipelineStore.getState();
     filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
     await executor.copyFiles([
@@ -349,6 +358,7 @@ async function run ({ file, opts }) {
   });
 
   pipelineFileWatcher.on('change', async () => {
+    selectPromise?.cancel();
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
