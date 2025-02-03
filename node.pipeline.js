@@ -9,9 +9,7 @@ workdir('ci/');
 concurrency(3);
 output('output-ci/');
 
-require('dotenv').config();
-
-secret('GH_NPM_TOKEN', process.env.GH_NPM_TOKEN);
+helpers.secretsFile('.env');
 
 function installNode () {
   step(`apk add --no-cache curl`);

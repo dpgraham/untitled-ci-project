@@ -182,6 +182,7 @@ class DockerExecutor {
 
 
         // pull $CI_OUTPUT
+        await this._waitForContainerToUnpause(dockerContainer);
         const ciOutput = await dockerContainer.exec({
           Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
           AttachStdout: true,

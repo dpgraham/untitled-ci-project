@@ -13,12 +13,13 @@ const apiNamespace = require('./api-namespace');
 require('colors');
 const Handlebars = require('handlebars');
 const { select } = require('@inquirer/prompts');
+const pipelineHelpers = require('./pipeline-helpers');
 
 const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
-function buildPipeline (pipelineFile) {
+async function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
   pipelineStore.getState().setPipelineFile(pipelineFile);
@@ -40,7 +41,11 @@ function buildPipeline (pipelineFile) {
 
   // clear output directories
   const { outputDir } = pipelineStore.getState();
-  fs.rmSync(outputDir, { force: true, recursive: true });
+  try {
+    await fs.promises.rm(outputDir, { force: true, recursive: true });
+  } catch (e) {
+    // TODO: bug.. this is a stopgap, fix this problem.
+  }
 
   const { image: currentImage } = pipelineStore.getState();
 
@@ -224,7 +229,7 @@ async function restartJobs (executor, filePath) {
   // queue up and start running next jobs
   const hasInvalidatedAJob = invalidatedJobs.length > 0;
   if (hasInvalidatedAJob) {
-    logger.info(`${filePath} changed. Re-running pipeline.`.gray);
+    logger.info(`\n${filePath} changed. Re-running pipeline.`.gray);
     pipelineStore.getState().enqueueJobs();
     debouncedRunNextJobs.cancel();
     await debouncedRunNextJobs(executor);
@@ -259,6 +264,10 @@ async function run ({ file, opts }) {
     for (const key of Object.keys(apiNamespace)) {
       global[key] = apiNamespace[key];
     }
+    global.helpers = {};
+    for (const key of Object.keys(pipelineHelpers)) {
+      global.helpers[key] = pipelineHelpers[key];
+    }
   }
 
   const runAndWatchPipeline = async () => {
@@ -283,7 +292,7 @@ async function run ({ file, opts }) {
     }
   };
 
-  const err = buildPipeline(pipelineFile);
+  const err = await buildPipeline(pipelineFile);
   if (err) {
     return;
   }
@@ -343,7 +352,7 @@ async function run ({ file, opts }) {
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
-    const err = buildPipeline(pipelineFile);
+    const err = await buildPipeline(pipelineFile);
     if (err) {
       return;
     }
@@ -389,4 +398,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { run };
+module.exports = { run, ...pipelineHelpers };
