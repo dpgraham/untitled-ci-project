@@ -6,6 +6,13 @@ ignore('./tiny/ignore/**/*');
 
 env('HELLO', 'WORLD!');
 
+// job('redis', function () {
+//   service();
+//   image('redis');
+//   port('<HOST>', '<CONTAINER>');
+//   files('/files/to/copy');
+// });
+
 job('log A', function () {
   onFilesChanged('./tiny/a.log');
   env('HELLO', 'GOODBYE');
@@ -15,11 +22,6 @@ job('log A', function () {
   step('echo "\n$SECRET"');
   step('echo "Smash Mouth" >> "$CI_OUTPUT"');
 });
-
-// job('tailing service', function () {
-//   service();
-//   step('tail "/ci-output/jobs/log A/logs.log"');
-// });
 
 job('skip me', function () {
   skip();

@@ -12,8 +12,7 @@
   "rules": {
     // Add any custom rules here
     "promise/no-native": "off",
-    "arrow-body-style": "off",
-    "no-console": "off"
+    "arrow-body-style": "off"
   },
   "ignorePatterns": ["*.pipeline.js"]
 }

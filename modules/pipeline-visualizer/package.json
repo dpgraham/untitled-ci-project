@@ -1,0 +1,14 @@
+{
+  "name": "pipeline-visualizer",
+  "version": "0.0.1",
+  "description": "The UI visualizer for running pipelines",
+  "main": "src/main.js",
+  "scripts": {
+    "test": "npm run test"
+  },
+  "author": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "portfinder": "^1.0.32"
+  }
+}
