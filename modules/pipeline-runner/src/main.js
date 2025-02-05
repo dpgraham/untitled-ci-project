@@ -309,7 +309,8 @@ async function run ({ file, opts }) {
   pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI));
 
   if (!pipelineStore.getState().exitOnDone) {
-    await runVisualizer();
+    const { sendEvent } = await runVisualizer();
+    sendEvent({ message: 'state', state: pipelineStore.getState() });
   }
 
   // Watch for file changes

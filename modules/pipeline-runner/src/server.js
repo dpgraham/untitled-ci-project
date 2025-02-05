@@ -6,6 +6,7 @@ const app = express();
 
 async function run () {
   const port = await portfinder.getPortPromise();
+
   return await new Promise((resolve) => {
     app.get('/status', (req, res) => {
       res.json({ message: 'Server is running' });
@@ -39,7 +40,7 @@ async function run () {
         res.end();
       });
 
-      resolve();
+      resolve({ port, closeServer, sendEvent });
     });
 
     // Start the server
@@ -56,8 +57,6 @@ async function run () {
     import('open').then(({ default: open }) => {
       open(`http://localhost:${port}`);
     });
-
-    return { port, closeServer, sendEvent };
   });
 }
 
