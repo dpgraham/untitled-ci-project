@@ -5,8 +5,16 @@
   // Start an SSE session
   const eventSource = new EventSource('/events');
 
+  let state;
+
+  // TODO: when a user tries to 
+
   eventSource.onmessage = (event) => {
     console.log('New message from server:', event.data);
+    const obj = JSON.parse(event.data);
+    if (obj.message === 'state') {
+      state = obj.state;
+    }
   };
 
   eventSource.onerror = (error) => {
@@ -25,15 +33,8 @@
       <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
     </a>
   </div>
-  <h1>Vite + Svelte</h1>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
+  <h1>Pipeline</h1>
+  <pre>{JSON.stringify(state, null, 2)}</pre>
 </main>
 
 <style>
