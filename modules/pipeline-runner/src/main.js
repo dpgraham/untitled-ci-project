@@ -74,6 +74,7 @@ async function buildExecutor (pipelineFile) {
     let executor = new DockerExecutor();
 
     process.on('SIGINT', () => {
+      // TODO: set state here to indicate that it was aborted
       logger.info('Terminating pipeline'.gray);
       executor.abort();
       if (require.main === module) { process.exit(1); }

@@ -1,5 +1,8 @@
 <script>
   import { onMount } from 'svelte';
+  import Card, { PrimaryAction } from '@smui/card';
+  import Paper, { Title, Content } from '@smui/paper';
+  import './global.scss';
 
   let state;
   
@@ -41,29 +44,15 @@
 
 <main>
   {#if state && state.jobs}
-    <ul>
       {#each state.jobs as job}
-        <li>{job.name} -- {job.status}</li>
+        <Paper square variant="outlined">
+          <Title>{job.name}</Title>
+          <Content>{job.status}</Content>
+        </Paper>
       {/each}
-    </ul>
   {/if}
   
 </main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
 </style>

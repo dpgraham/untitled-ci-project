@@ -15,20 +15,23 @@ const installPackages = (dir) => {
     files.forEach((file) => {
       const filePath = path.join(dir, file.name);
 
+      // Check if the file is a directory and has a package.json
       if (file.isDirectory()) {
-        // Recursively search in subdirectories
-        installPackages(filePath);
-      } else if (file.name === 'package.json') {
-        // If package.json is found, run npm install
-        console.log(`Installing packages in ${dir}...`);
-        exec('npm ci', { cwd: dir }, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error installing packages in ${dir}:`, error);
-            return;
-          }
-          console.log(stdout);
-          if (stderr) {
-            console.error(stderr);
+        const packageJsonPath = path.join(filePath, 'package.json');
+        fs.access(packageJsonPath, fs.constants.F_OK, (err) => {
+          if (!err) {
+            // If package.json is found, run npm install
+            console.log(`Installing packages in ${filePath}...`);
+            exec('npm install', { cwd: filePath }, (error, stdout, stderr) => {
+              if (error) {
+                console.error(`Error installing packages in ${filePath}:`, error);
+                return;
+              }
+              console.log(stdout);
+              if (stderr) {
+                console.error(stderr);
+              }
+            });
           }
         });
       }

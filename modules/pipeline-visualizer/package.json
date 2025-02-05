@@ -12,8 +12,10 @@
   },
   "author": "",
   "dependencies": {
+    "@smui/card": "^8.0.0-beta.3",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "svelte": "^5.15.0",
+    "svelte-material-ui": "^8.0.0-beta.3",
     "vite": "^6.0.11"
   },
   "directories": {
@@ -21,6 +23,7 @@
   },
   "license": "ISC",
   "devDependencies": {
-    "@smui/paper": "^8.0.0-beta.3"
+    "@smui/paper": "^8.0.0-beta.3",
+    "sass-embedded": "^1.83.4"
   }
 }
