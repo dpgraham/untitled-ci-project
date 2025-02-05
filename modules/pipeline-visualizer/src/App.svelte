@@ -1,14 +1,14 @@
 <script>
   import { onMount } from 'svelte';
-  import Card, { PrimaryAction } from '@smui/card';
-  import Paper, { Title, Content } from '@smui/paper';
+  import Card, { Content } from '@smui/card';
   import './global.scss';
 
   let state;
   
   // Get the query parameter "mockState"
   const urlParams = new URLSearchParams(window.location.search);
-  const mockState = urlParams.get('mockState');
+  const jobName = urlParams.get('job');
+  const mockState = urlParams.get('mockState');  
   
   // Start an SSE session
   const eventSource = !mockState ? new EventSource('/events') : {};
@@ -43,16 +43,34 @@
 </script>
 
 <main>
-  {#if state && state.jobs}
+  {#if !jobName && state && state.jobs}
       {#each state.jobs as job}
-        <Paper square variant="outlined">
-          <Title>{job.name}</Title>
-          <Content>{job.status}</Content>
-        </Paper>
+        <div class="custom-card">
+          <a href="/?job={job.name}">
+            <Card>
+              <h3>Job Name: {job.name}</h3>
+              <Content>{job.status}</Content>
+            </Card>
+          </a>
+        </div>
       {/each}
   {/if}
-  
+  {#if jobName }
+    <div>{jobName} placeholder</div>
+  {/if}
 </main>
 
 <style>
+  .custom-card {
+    margin-bottom: 2em;
+    text-align: left;
+    cursor: pointer;
+    a {
+      color: #000;
+    }
+    h3 {
+      padding-left: 1em;
+      margin-bottom: 0;
+    }
+  }
 </style>

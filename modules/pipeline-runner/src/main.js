@@ -114,6 +114,7 @@ async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
   const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
+  pipelineStore.getState().setLogfilePath(logFilePath, job);
   if (fs.existsSync(logFilePath)) {
     await fs.promises.rm(logFilePath, { recursive: true, force: true });
   }

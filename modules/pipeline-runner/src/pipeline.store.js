@@ -88,6 +88,13 @@ const createPipelineStore = (set) => ({
       }
     }
   })),
+  setLogfilePath: (path, job) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (job.name === checkJob.name) {
+        checkJob.logfilePath = path;
+      }
+    }
+  })),
   setEnv: (envName, value, job, isSecret) => set((state) => produce(state, (draft) => {
     if (job) {
       for (const checkJob of draft.jobs) {
