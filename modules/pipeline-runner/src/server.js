@@ -1,6 +1,8 @@
 const express = require('express');
-const app = express();
 const portfinder = require('portfinder');
+const path = require('path');
+
+const app = express();
 
 async function run () {
   const port = await portfinder.getPortPromise();
@@ -8,6 +10,11 @@ async function run () {
     app.get('/status', (req, res) => {
       res.json({ message: 'Server is running' });
     });
+
+    // Serve static files from a directory
+    // TODO: have a dev mode where it proxies the dev server
+    const staticAssets = path.join(__dirname, '..', '..', 'pipeline-visualizer', 'dist');
+    app.use(express.static(staticAssets));
 
     let sendEvent;
 
@@ -45,12 +52,17 @@ async function run () {
       await server.close();
     }
 
+    // Open the browser at the specified port
+    import('open').then(({ default: open }) => {
+      open(`http://localhost:${port}`);
+    });
+
     return { port, closeServer, sendEvent };
   });
 }
 
 if (require.main === module) {
-  run().then(() => console.log('it is ready!!!'));
+  run();
 }
 
 module.exports = { run };

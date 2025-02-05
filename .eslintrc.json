@@ -14,5 +14,5 @@
     "promise/no-native": "off",
     "arrow-body-style": "off"
   },
-  "ignorePatterns": ["*.pipeline.js"]
+  "ignorePatterns": ["*.pipeline.js", "dist/"]
 }

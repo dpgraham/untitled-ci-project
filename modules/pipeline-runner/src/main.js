@@ -14,6 +14,7 @@ require('colors');
 const Handlebars = require('handlebars');
 const { select } = require('@inquirer/prompts');
 const pipelineHelpers = require('./pipeline-helpers');
+const { run: runVisualizer } = require('./server');
 
 const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
@@ -306,6 +307,10 @@ async function run ({ file, opts }) {
   }
   executor = await buildExecutor(pipelineFile);
   pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI));
+
+  if (!pipelineStore.getState().exitOnDone) {
+    await runVisualizer();
+  }
 
   // Watch for file changes
 

@@ -2,13 +2,22 @@
   "name": "pipeline-visualizer",
   "version": "0.0.1",
   "description": "The UI visualizer for running pipelines",
-  "main": "src/main.js",
+  "main": "src/server.js",
+  "type": "module",
   "scripts": {
-    "test": "npm run test"
+    "test": "npm run test",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "author": "",
   "dependencies": {
-    "express": "^4.21.2",
-    "portfinder": "^1.0.32"
-  }
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "svelte": "^5.15.0",
+    "vite": "^6.0.11"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "license": "ISC"
 }

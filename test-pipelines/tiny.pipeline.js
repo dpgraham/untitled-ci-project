@@ -19,6 +19,7 @@ job('log A', function () {
   secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!');
   step('cat a.log');
   step('echo "\n$HELLO"');
+  // step.break(); // TODO: add something that stops the pipeline here so user can look at stuff
   step('echo "\n$SECRET"');
   step('echo "Smash Mouth" >> "$CI_OUTPUT"');
 });
