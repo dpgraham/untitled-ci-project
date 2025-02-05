@@ -28,5 +28,5 @@
    * Use global.d.ts instead of compilerOptions.types
    * to avoid limiting type declarations.
    */
-  "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte", "../pipeline-runner/src/server.jsr.js../pipeline-runner/src/server.jserver.js"]
+  "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte", "../pipeline-runner/src/server.jsr.js../pipeline-runner/src/server.jserver.js", "public/js/pending-tiny.state.js", "public/js/pending-tiny.state.js"]
 }

@@ -1,16 +1,16 @@
 <script>
-  import svelteLogo from './assets/svelte.svg';
-  import viteLogo from '/vite.svg';
-
-  // Start an SSE session
-  const eventSource = new EventSource('/events');
+  import { onMount } from 'svelte';
 
   let state;
-
-  // TODO: handle case of user trying to refresh or re-open page that it gets the state
+  
+  // Get the query parameter "mockState"
+  const urlParams = new URLSearchParams(window.location.search);
+  const mockState = urlParams.get('mockState');
+  
+  // Start an SSE session
+  const eventSource = !mockState ? new EventSource('/events') : {};
 
   eventSource.onmessage = (event) => {
-    console.log('New message from server:', event.data);
     const obj = JSON.parse(event.data);
     if (obj.message === 'state') {
       state = obj.state;
@@ -18,23 +18,36 @@
   };
 
   eventSource.onerror = (error) => {
-    console.error('Error occurred:', error);
     eventSource.close(); // Close the connection on error
   };
+
+  // Dynamically add a script tag
+  if(mockState) {
+    onMount(() => {
+      const script = document.createElement('script');
+      script.src = '/js/' + mockState + '.state.js'; // Update with your script path
+      script.async = true;
+      document.head.appendChild(script);
+      let interval = setInterval(() => {
+        if (window.MOCK_STATE) {
+          state = window.MOCK_STATE;
+          clearInterval(interval);
+        }
+      }, 1000);
+    });
+  }
+
 </script>
 
 <main>
-  <div>
-    <!-- TODO: Change this to internal logo -->
-    <a href="https://vite.dev" target="_blank" rel="noreferrer">
-      <img src={viteLogo} class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>Pipeline</h1>
-  <pre>{JSON.stringify(state, null, 2)}</pre>
+  {#if state && state.jobs}
+    <ul>
+      {#each state.jobs as job}
+        <li>{job.name} -- {job.status}</li>
+      {/each}
+    </ul>
+  {/if}
+  
 </main>
 
 <style>
