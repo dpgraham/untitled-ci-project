@@ -23,7 +23,7 @@ const PIPELINE_STATUS = {
   FAILED: 'failed',
 };
 
-const pipelineStore = create((set) => ({
+const createPipelineStore = (set) => ({
   jobs: [],
   image: null,
   files: './',
@@ -336,9 +336,31 @@ const pipelineStore = create((set) => ({
       return;
     }
   })),
-}));
+});
+
+let onStateChangeHandlers = [];
+
+const handleStateChange = function (cb) {
+  onStateChangeHandlers.push(cb);
+};
+
+// Middleware to log state changes
+const logMiddleware = (config) => (set, get, api) =>
+  config(
+    (args) => {
+      set(args);
+      const newState = get();
+      onStateChangeHandlers.forEach((cb) => cb(newState));
+    },
+    get,
+    api
+  );
+
+const pipelineStore = create(logMiddleware(createPipelineStore));
+
 
 module.exports = pipelineStore;
 module.exports.JOB_STATUS = JOB_STATUS;
 module.exports.JOB_RESULT = JOB_RESULT;
 module.exports.PIPELINE_STATUS = PIPELINE_STATUS;
+module.exports.handleStateChange = handleStateChange;

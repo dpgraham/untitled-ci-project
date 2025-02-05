@@ -1,6 +1,7 @@
 const express = require('express');
 const portfinder = require('portfinder');
 const path = require('path');
+const pipelineStore = require('./pipeline.store');
 
 const app = express();
 
@@ -28,6 +29,10 @@ async function run () {
       sendEvent = (data) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       };
+      pipelineStore.handleStateChange((state) => {
+        sendEvent({ message: 'state', state });
+      });
+      sendEvent({ message: 'state', state: pipelineStore.getState()});
 
       // ping the client to keep this alive
       const intervalId = setInterval(() => {

@@ -7,7 +7,7 @@
 
   let state;
 
-  // TODO: when a user tries to 
+  // TODO: handle case of user trying to refresh or re-open page that it gets the state
 
   eventSource.onmessage = (event) => {
     console.log('New message from server:', event.data);
