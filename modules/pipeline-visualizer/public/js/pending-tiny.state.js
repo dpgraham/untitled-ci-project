@@ -25,7 +25,8 @@ window.MOCK_STATE = {
       ],
       'onFilesChanged': null,
       'status': 'pending',
-      'group': 'tests'
+      'group': 'tests',
+      'logfilePath': 'mock-logfile.log'
     },
     {
       'name': 'unit-test',

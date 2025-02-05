@@ -2,6 +2,7 @@ const express = require('express');
 const portfinder = require('portfinder');
 const path = require('path');
 const pipelineStore = require('./pipeline.store');
+const { Tail } = require('tail');
 
 const app = express();
 
@@ -48,6 +49,57 @@ async function run () {
       });
 
       resolve({ port, closeServer, sendEvent });
+    });
+
+    app.get('/logs/:jobName', (req, res) => {
+      const jobName = req.params.jobName;
+      const jobs = pipelineStore.getState().jobs;
+      let selectedJob;
+      for (const job of jobs) {
+        if (job.name === jobName) {
+          selectedJob = job;
+        }
+      }
+      const { logfilePath } = selectedJob;
+
+      // ping the client to keep this alive
+      setInterval(() => {
+        sendEvent({ message: 'ping', timestamp: new Date() });
+      }, 1000);
+
+      // Set up SSE response
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      // Stream the log file
+      const streamLogFile = () => {
+        if (!logfilePath) {
+          res.status(404).end();
+        }
+        const tail = new Tail(logfilePath);
+        // Read the entire contents of the log file and send it to the client
+        const fs = require('fs');
+        fs.readFile(logfilePath, 'utf8', (err, data) => {
+          // TODO: limit how much of the log file is read so that it doesn't
+          // overload the browser's memory
+          if (err) {
+            res.status(500).send('Error reading log file');
+            return;
+          }
+          res.write(data); // Send the entire contents of the log file
+        });
+
+        // when contents of the file change, send those changes to the stream
+        tail.on('line', function (line) {
+          res.write(line);
+        });
+        tail.on('error', function () {
+          res.end();
+        });
+      };
+
+      streamLogFile();
     });
 
     // Start the server
