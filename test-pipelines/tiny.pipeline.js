@@ -31,6 +31,13 @@ job('skip me', function () {
   step('exit 1');
 });
 
+job('print steps', function () {
+  for (let i=0; i<20; i++) {
+    step('sleep 1');
+    step(`echo ${i}`)
+  }
+});
+
 job('log B', function () {
   onFilesChanged('./tiny/b.log');
   step('cat b.log');

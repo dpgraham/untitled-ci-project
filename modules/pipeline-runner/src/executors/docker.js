@@ -150,6 +150,7 @@ class DockerExecutor {
         filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat((secretValue || '').length));
       }
       fsStream.write(filteredChunk);
+      fs.fsyncSync(fsStream.fd);
     });
 
     return new Promise((resolve, reject) => {

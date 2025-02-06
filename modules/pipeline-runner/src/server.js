@@ -6,6 +6,11 @@ const { Tail } = require('tail');
 
 const app = express();
 
+// TODO: BUG
+// repro steps... run a pipeline and then open up a job from the pipeline in a new tab,
+// it will cause the SSE stream in the original tab to stop....
+// seems like it only allows one SSE connection in the browser
+
 async function run () {
   const port = await portfinder.getPortPromise();
 
@@ -58,8 +63,12 @@ async function run () {
       for (const job of jobs) {
         if (job.name === jobName) {
           selectedJob = job;
+          break;
         }
       }
+      const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
       const { logfilePath } = selectedJob;
 
       // ping the client to keep this alive
@@ -87,12 +96,12 @@ async function run () {
             res.status(500).send('Error reading log file');
             return;
           }
-          res.write(data); // Send the entire contents of the log file
+          sendEvent({ message: 'log', data }); // Send the entire contents of the log file
         });
 
         // when contents of the file change, send those changes to the stream
         tail.on('line', function (line) {
-          res.write(line);
+          sendEvent({ message: 'log', data: line });
         });
         tail.on('error', function () {
           res.end();
