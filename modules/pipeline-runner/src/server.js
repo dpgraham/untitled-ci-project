@@ -24,15 +24,13 @@ async function run () {
     const staticAssets = path.join(__dirname, '..', '..', 'pipeline-visualizer', 'dist');
     app.use(express.static(staticAssets));
 
-    let sendEvent;
-
     // New endpoint for Server-Sent Events
     app.get('/events', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      sendEvent = (data) => {
+      let sendEvent = (data) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       };
       pipelineStore.handleStateChange((state) => {
@@ -53,7 +51,7 @@ async function run () {
         res.end();
       });
 
-      resolve({ port, closeServer, sendEvent });
+      resolve({ port, closeServer });
     });
 
     app.get('/logs/:jobName', (req, res) => {
