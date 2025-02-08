@@ -14,7 +14,7 @@ window.MOCK_STATE = {
         }
       ],
       'onFilesChanged': 'package*.json',
-      'status': 'pending'
+      'status': 'passed'
     },
     {
       'name': 'lint',

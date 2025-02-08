@@ -3,7 +3,7 @@
   import Card, { Content } from '@smui/card';
   import './global.scss';
 
-  let state, jobLogs;
+  let state, jobLogs, job;
   
   // Get the query parameter "mockState"
   const urlParams = new URLSearchParams(window.location.search);
@@ -17,6 +17,16 @@
     const obj = JSON.parse(event.data);
     if (obj.message === 'state') {
       state = obj.state;
+      // TODO: if "jobName", get the selectedJob and set that so it can
+      // be rendered in the component
+      if (jobName) {
+        for (let checkJob of state.jobs) {
+          if (checkJob.name === jobName) {
+            job = checkJob;
+            break;
+          }
+        }
+      }
     }
   };
 
@@ -70,10 +80,15 @@
 </script>
 
 <main>
+  <!-- TODO: if no "state" then show a loading indicator here -->
+  {#if state}
+  <h4>PIPELINE: {state.pipelineFile}</h4>
+  <h4>STATUS: {state.result}</h4>
   {#if !jobName && state && state.jobs}
+      <!-- TODO: color code the state of each job -->
       {#each state.jobs as job}
         <div class="custom-card">
-          <a href="/?job={job.name}">
+          <a class="job-card-{job.status}" href="/?job={job.name}">
             <Card>
               <h3>Job Name: {job.name}</h3>
               <Content>{job.status}</Content>
@@ -82,14 +97,23 @@
         </div>
       {/each}
   {/if}
-  {#if jobName }
+  {#if job }
+    <div>{job.name}</div>
+    <!-- TODO: when a job resets the logs should clear and reset too -->
     <div class="logs">
     {#each jobLogs as jobLog}{jobLog}<br>{/each}
     </div>
   {/if}
+  {/if}
 </main>
 
 <style>
+  :global(body) {
+    place-items: start;
+  }
+  main {
+    text-align: left;
+  }
   .logs {
     height: 550px;
     max-height: 75vh;
@@ -101,12 +125,22 @@
     font-size: 12px;
     background-color: #333232;
   }
+  /* todo: rename this to job-card */
   .custom-card {
     margin-bottom: 2em;
     text-align: left;
     cursor: pointer;
     a {
       color: #000;
+    }
+    .job-card-passed {
+      color: #28a745;
+    }
+    .job-card-pending {
+      color: #6c757d;
+    }
+    .job-card-failed {
+      color: #dc3545;
     }
     h3 {
       padding-left: 1em;
