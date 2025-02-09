@@ -116,9 +116,12 @@ async function runJob (executor, job) {
   const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
   pipelineStore.getState().setLogfilePath(logFilePath, job);
   if (fs.existsSync(logFilePath)) {
-    await fs.promises.rm(logFilePath, { recursive: true, force: true });
+    await fs.promises.writeFile(logFilePath, '');
   }
   await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
+
+  // set the job ID
+  pipelineStore.getState().setJobId(job);
 
   let artifactsPathDest;
   if (job.artifactsDir) {
@@ -185,7 +188,7 @@ async function runJob (executor, job) {
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-      // TODO: it's not properly showing the job as passing
+      // TODO: bug: it's not properly showing the job as passing
       pipelineStore.getState().setJobResult(job, JOB_RESULT.PASSED);
       logger.info(`\nPipeline is passing\n`.green);
     } else {

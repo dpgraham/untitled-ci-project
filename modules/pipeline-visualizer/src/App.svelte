@@ -3,7 +3,7 @@
   import Card, { Content } from '@smui/card';
   import './global.scss';
 
-  let state, jobLogs, job;
+  let state, jobLogs = [], job, id;
   
   // Get the query parameter "mockState"
   const urlParams = new URLSearchParams(window.location.search);
@@ -24,6 +24,12 @@
             break;
           }
         }
+        // if ID is different, it means the job was restarted so 
+        // clear the logs
+        if (id !== job?.id) {
+          jobLogs = [];
+          id = job?.id;
+        }
       }
     }
   };
@@ -33,7 +39,6 @@
   };
 
   if (jobName) {
-    jobLogs = [];
     const jobEventSource = new EventSource('/logs/' + jobName);
     jobEventSource.onmessage = (event) => {
       const { message, data } = JSON.parse(event.data);
@@ -42,16 +47,15 @@
         if (dataArr[dataArr.length - 1] === '') {
           dataArr = dataArr.slice(0, dataArr.length - 1);
         }
-        
         jobLogs = [...jobLogs, ...dataArr];
         // scrollToBottom(); // Scroll to the bottom after updating logs
       }
     };
   }
 
-  // Dynamically add a script tag
   if(mockState) {
     onMount(() => {
+      // if we're mocking add a mock job json to the page
       const script = document.createElement('script');
       script.src = '/js/' + mockState + '.state.js'; // Update with your script path
       script.async = true;
@@ -97,9 +101,9 @@
   {/if}
   {#if job }
     <div>{job.name}</div>
-    <!-- TODO: when a job resets the logs should clear and reset too -->
+    <div>ID: {job.id}</div>
     <div class="logs">
-    {#each jobLogs as jobLog}{jobLog}<br>{/each}
+      {#each jobLogs as jobLog}{jobLog}<br>{/each}
     </div>
   {/if}
   {/if}

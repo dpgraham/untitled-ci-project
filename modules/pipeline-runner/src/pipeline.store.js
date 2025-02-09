@@ -1,6 +1,7 @@
 const { create } = require('zustand');
 const { produce } = require('immer');
 const picomatch = require('picomatch');
+const { v4: uuidv4 } = require('uuid');
 
 const JOB_STATUS = {
   PENDING: 'pending',
@@ -64,6 +65,17 @@ const createPipelineStore = (set) => ({
       }
     }
   })),
+  setJobId: (job) => {
+    let jobId = uuidv4();
+    set((state) => produce(state, (draft) => {
+      for (const checkJob of draft.jobs) {
+        if (checkJob.name === job.name) {
+          checkJob.id = jobId;
+        }
+      }
+    }));
+    return jobId;
+  },
   setImage: (image, job) => set((state) => produce(state, (draft) => {
     if (!job) {
       draft.image = image;

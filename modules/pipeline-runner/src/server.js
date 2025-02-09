@@ -3,6 +3,7 @@ const portfinder = require('portfinder');
 const path = require('path');
 const pipelineStore = require('./pipeline.store');
 const { Tail } = require('tail');
+const fs = require('fs');
 
 const app = express();
 
@@ -33,7 +34,7 @@ async function run () {
       });
       sendEvent({ message: 'state', state: pipelineStore.getState()});
 
-      // TODO: send a message to the UI page when it's dead
+      // TODO: send a message to the UI page when it's dead or set the status to "aborted"
 
       // ping the client to keep this alive
       const intervalId = setInterval(() => {
@@ -81,7 +82,6 @@ async function run () {
         }
         const tail = new Tail(logfilePath);
         // Read the entire contents of the log file and send it to the client
-        const fs = require('fs');
         fs.readFile(logfilePath, 'utf8', (err, data) => {
           // TODO: limit how much of the log file is read so that it doesn't
           // overload the browser's memory
