@@ -18,14 +18,14 @@ apiNamespace.job = (name, fn) => {
 };
 
 apiNamespace.env = (name, value) => {
-  if (typeof(value) === 'undefined') {
+  if (typeof (value) === 'undefined') {
     throw new Error(`"env" requires two arguments: name, value`);
   }
   pipelineStore.getState().setEnv(name, value, currentJob);
 };
 
 apiNamespace.secret = (name, value) => {
-  if (typeof(value) === 'undefined') {
+  if (typeof (value) === 'undefined') {
     throw new Error(`"secret" requires two arguments: name, value`);
   }
   pipelineStore.getState().setEnv(name, value, currentJob, true);
