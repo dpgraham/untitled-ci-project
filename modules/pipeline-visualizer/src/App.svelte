@@ -17,8 +17,6 @@
     const obj = JSON.parse(event.data);
     if (obj.message === 'state') {
       state = obj.state;
-      // TODO: if "jobName", get the selectedJob and set that so it can
-      // be rendered in the component
       if (jobName) {
         for (let checkJob of state.jobs) {
           if (checkJob.name === jobName) {
@@ -89,7 +87,7 @@
       {#each state.jobs as job}
         <div class="custom-card">
           <a class="job-card-{job.status}" href="/?job={job.name}">
-            <Card>
+            <Card class="job-card-{job.status}">
               <h3>Job Name: {job.name}</h3>
               <Content>{job.status}</Content>
             </Card>
@@ -125,6 +123,9 @@
     font-size: 12px;
     background-color: #333232;
   }
+  * :global(.hello-world) {
+    background-color: blue;
+  }
   /* todo: rename this to job-card */
   .custom-card {
     margin-bottom: 2em;
@@ -133,14 +134,21 @@
     a {
       color: #000;
     }
-    .job-card-passed {
-      color: #28a745;
+    * :global(.job-card-passed) {
+      color: #28a745 !important;
+      background-color: #d4edda; /* Light green background */
     }
-    .job-card-pending {
+    * :global(.job-card-pending) {
       color: #6c757d;
+      background-color: #e2e3e5; /* Light gray background */
     }
-    .job-card-failed {
+    * :global(.job-card-failed) {
       color: #dc3545;
+      background-color: #f8d7da; /* Light red background */
+    }
+    * :global(.job-card-running) {
+      color: #007BFF;
+      background-color: #cce5ff; /* Light blue background */
     }
     h3 {
       padding-left: 1em;
