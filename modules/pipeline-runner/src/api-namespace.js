@@ -17,12 +17,17 @@ apiNamespace.job = (name, fn) => {
   currentJob = null;
 };
 
-// TODO: if env or secret are empty it should throw an error
 apiNamespace.env = (name, value) => {
+  if (typeof(value) === 'undefined') {
+    throw new Error(`"env" requires two arguments: name, value`);
+  }
   pipelineStore.getState().setEnv(name, value, currentJob);
 };
 
 apiNamespace.secret = (name, value) => {
+  if (typeof(value) === 'undefined') {
+    throw new Error(`"secret" requires two arguments: name, value`);
+  }
   pipelineStore.getState().setEnv(name, value, currentJob, true);
 };
 

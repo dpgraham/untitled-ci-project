@@ -70,7 +70,7 @@
   }
 
   // Function to scroll to the bottom of the logs
-  // TODO: Get this working, it's not doing anything
+  // TODO: 0 Get this working, it's not doing anything
   // const scrollToBottom = () => {
   //   const logsElement = document.querySelector('.logs');
   //   if (logsElement) {
@@ -87,9 +87,9 @@
   <h4>PIPELINE: {state.pipelineFile}</h4>
   <h4>STATUS: {state.result}</h4>
   {#if !jobName && state && state.jobs}
-      <!-- TODO: color code the state of each job -->
       {#each state.jobs as job}
-        <div class="custom-card">
+        {#if job.result !== 'skipped' }
+        <div class="job-card">
           <a class="job-card-{job.status}" href="/?job={job.name}">
             <Card class="job-card-{job.status}">
               <h3>Job Name: {job.name}</h3>
@@ -97,6 +97,7 @@
             </Card>
           </a>
         </div>
+        {/if}
       {/each}
   {/if}
   {#if job }
@@ -130,8 +131,7 @@
   * :global(.hello-world) {
     background-color: blue;
   }
-  /* todo: rename this to job-card */
-  .custom-card {
+  .job-card {
     margin-bottom: 2em;
     text-align: left;
     cursor: pointer;

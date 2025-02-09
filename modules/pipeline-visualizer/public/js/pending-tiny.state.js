@@ -29,6 +29,19 @@ window.MOCK_STATE = {
       'logfilePath': 'mock-logfile.log'
     },
     {
+      'name': 'skipped',
+      'steps': [
+        {
+          'command': 'npm run lint'
+        }
+      ],
+      'onFilesChanged': null,
+      'status': 'passed',
+      'result': 'skipped',
+      'group': 'tests',
+      'logfilePath': 'mock-logfile.log'
+    },
+    {
       'name': 'unit-test',
       'steps': [
         {

@@ -34,7 +34,7 @@ async function run () {
       });
       sendEvent({ message: 'state', state: pipelineStore.getState()});
 
-      // TODO: send a message to the UI page when it's dead or set the status to "aborted"
+      // TODO: 1 send a message to the UI page when it's dead or set the status to "aborted"
 
       // ping the client to keep this alive
       const intervalId = setInterval(() => {
@@ -83,7 +83,7 @@ async function run () {
         const tail = new Tail(logfilePath);
         // Read the entire contents of the log file and send it to the client
         fs.readFile(logfilePath, 'utf8', (err, data) => {
-          // TODO: limit how much of the log file is read so that it doesn't
+          // TODO: 0 limit how much of the log file is read so that it doesn't
           // overload the browser's memory
           if (err) {
             res.status(500).send('Error reading log file');

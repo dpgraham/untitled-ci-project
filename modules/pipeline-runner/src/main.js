@@ -74,7 +74,7 @@ async function buildExecutor (pipelineFile) {
     let executor = new DockerExecutor();
 
     process.on('SIGINT', () => {
-      // TODO: set state here to indicate that it was aborted
+      // TODO: 1 set state here to indicate that it was aborted
       logger.info('Terminating pipeline'.gray);
       executor.abort();
       if (require.main === module) { process.exit(1); }
@@ -188,7 +188,7 @@ async function runJob (executor, job) {
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-      // TODO: bug: it's not properly showing the job as passing
+      // TODO: 0 bug: it's not properly showing the job as passing
       pipelineStore.getState().setJobResult(job, JOB_RESULT.PASSED);
       logger.info(`\nPipeline is passing\n`.green);
     } else {
