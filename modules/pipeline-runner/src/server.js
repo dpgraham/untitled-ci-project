@@ -4,8 +4,15 @@ const path = require('path');
 const pipelineStore = require('./pipeline.store');
 const { Tail } = require('tail');
 const fs = require('fs');
+const { promises: fsPromises } = fs;
 
 const app = express();
+
+/** TODO: bugs
+ * - log page is very slow to load/refresh when loading while in progress (when)
+ * - some of the logs still can't be read
+ * - invalidating a pipeline (by saving .pipeline.js) causes logs to empty and nothing shows up
+ */
 
 async function run () {
   const port = await portfinder.getPortPromise();
@@ -27,11 +34,12 @@ async function run () {
       res.setHeader('Connection', 'keep-alive');
 
       let sendEvent = (data) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (res.writable) {res.write(`data: ${JSON.stringify(data)}\n\n`);}
       };
-      pipelineStore.handleStateChange((state) => {
+      const onStateChange = (state) => {
         sendEvent({ message: 'state', state });
-      });
+      };
+      pipelineStore.handleStateChange(onStateChange);
       sendEvent({ message: 'state', state: pipelineStore.getState()});
 
       // TODO: 1 send a message to the UI page when it's dead or set the status to "aborted"
@@ -44,6 +52,7 @@ async function run () {
       // Clean up when the connection is closed
       req.on('close', () => {
         clearInterval(intervalId);
+        pipelineStore.removeStateChangeHandler(onStateChange);
         res.end();
       });
 
@@ -61,14 +70,22 @@ async function run () {
         }
       }
       const sendEvent = (data) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (res.writable) {
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+        }
       };
       const { logfilePath } = selectedJob || {};
 
       // ping the client to keep this alive
-      setInterval(() => {
+      const intervalId = setInterval(() => {
         sendEvent({ message: 'ping', timestamp: new Date() });
       }, 1000);
+
+      // Clean up when the connection is closed
+      req.on('close', () => {
+        clearInterval(intervalId);
+        res.end();
+      });
 
       // Set up SSE response
       res.setHeader('Content-Type', 'text/event-stream');
@@ -76,29 +93,38 @@ async function run () {
       res.setHeader('Connection', 'keep-alive');
 
       // Stream the log file
-      const streamLogFile = () => {
+      const streamLogFile = async () => {
         if (!logfilePath) {
           res.status(404).end();
+          return;
         }
-        const tail = new Tail(logfilePath);
-        // Read the entire contents of the log file and send it to the client
-        fs.readFile(logfilePath, 'utf8', (err, data) => {
-          // TODO: 0 limit how much of the log file is read so that it doesn't
-          // overload the browser's memory
-          if (err) {
-            res.status(500).send('Error reading log file');
-            return;
-          }
-          sendEvent({ message: 'log', data }); // Send the entire contents of the log file
-        });
 
-        // when contents of the file change, send those changes to the stream
-        tail.on('line', function (line) {
-          sendEvent({ message: 'log', data: line });
-        });
-        tail.on('error', function () {
-          res.end();
-        });
+        try {
+          // start tailing logfile
+          const tail = new Tail(logfilePath);
+          // Get the file size and read the last 10 KB
+          const stats = await fsPromises.stat(logfilePath);
+          const start = Math.max(0, stats.size - 10 * 1024); // Start position for the last 100 KB
+          const readStream = fs.createReadStream(logfilePath, { encoding: 'utf8', start, end: stats.size }); // Limit to last 100 KB
+
+          readStream.on('data', (chunk) => {
+            sendEvent({ message: 'log', data: chunk });
+          });
+
+          readStream.on('error', (/* err */) => {
+            res.status(500).send('Error reading log file');
+          });
+
+          // when contents of the file change, send those changes to the stream
+          tail.on('line', function (line) {
+            sendEvent({ message: 'log', data: line });
+          });
+          tail.on('error', function () {
+            res.end();
+          });
+        } catch (err) {
+          res.status(500).send('Error getting log file stats');
+        }
       };
 
       streamLogFile();

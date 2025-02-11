@@ -215,6 +215,7 @@ const createPipelineStore = (set) => ({
   setResult: (result) => set({ result }),
   pipelineFile: null, // Add this line to store the pipeline file path
   setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
+  setPipelineResult: (result) => set({ result }),
   getPipelineStatus: () => {
     let jobs = pipelineStore.getState().jobs;
     jobs = jobs.filter((job) => !job.skip);
@@ -363,6 +364,10 @@ const handleStateChange = function (cb) {
   onStateChangeHandlers.push(cb);
 };
 
+const removeStateChangeHandler = function (cb) {
+  onStateChangeHandlers = onStateChangeHandlers.filter((handler) => handler !== cb);
+};
+
 // Middleware to log state changes
 const logMiddleware = (config) => (set, get, api) =>
   config(
@@ -383,3 +388,4 @@ module.exports.JOB_STATUS = JOB_STATUS;
 module.exports.JOB_RESULT = JOB_RESULT;
 module.exports.PIPELINE_STATUS = PIPELINE_STATUS;
 module.exports.handleStateChange = handleStateChange;
+module.exports.removeStateChangeHandler = removeStateChangeHandler;

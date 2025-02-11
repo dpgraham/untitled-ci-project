@@ -188,11 +188,10 @@ async function runJob (executor, job) {
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-      // TODO: 0 bug: it's not properly showing the job as passing
-      pipelineStore.getState().setJobResult(job, JOB_RESULT.PASSED);
+      pipelineStore.getState().setPipelineResult(JOB_RESULT.PASSED);
       logger.info(`\nPipeline is passing\n`.green);
     } else {
-      pipelineStore.getState().setJobResult(job, JOB_RESULT.FAILED);
+      pipelineStore.getState().setPipelineResult(JOB_RESULT.FAILED);
       logger.error(`\nPipeline is failing\n`.red);
     }
     if (pipelineStore.getState().exitOnDone) {

@@ -5,6 +5,10 @@
 
   let state, jobLogs = [], job, id;
   
+  const MAX_LOG_SIZE = 100 * 1024;
+
+  let logLength = 0;
+
   // Get the query parameter "mockState"
   const urlParams = new URLSearchParams(window.location.search);
   const jobName = urlParams.get('job');
@@ -43,6 +47,16 @@
     jobEventSource.onmessage = (event) => {
       const { message, data } = JSON.parse(event.data);
       if (message === 'log') {
+        logLength += data.length;
+        
+        // reduce the log size to be below the max threshold
+        if (logLength > MAX_LOG_SIZE) {
+          while (logLength > MAX_LOG_SIZE) {
+            let log = jobLogs.shift();
+            logLength -= log.length;
+          }
+        }
+
         let dataArr = data.split('\n');
         if (dataArr[dataArr.length - 1] === '') {
           dataArr = dataArr.slice(0, dataArr.length - 1);
