@@ -50,11 +50,9 @@
         logLength += data.length;
         
         // reduce the log size to be below the max threshold
-        if (logLength > MAX_LOG_SIZE) {
-          while (logLength > MAX_LOG_SIZE) {
-            let log = jobLogs.shift();
-            logLength -= log.length;
-          }
+        while (logLength > MAX_LOG_SIZE) {
+          let log = jobLogs.shift();
+          logLength -= (log?.length || 0);
         }
 
         let dataArr = data.split('\n');

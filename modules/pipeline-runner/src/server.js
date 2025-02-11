@@ -4,12 +4,12 @@ const path = require('path');
 const pipelineStore = require('./pipeline.store');
 const { Tail } = require('tail');
 const fs = require('fs');
+const throttle = require('lodash.throttle');
 const { promises: fsPromises } = fs;
 
 const app = express();
 
 /** TODO: bugs
- * - log page is very slow to load/refresh when loading while in progress (when)
  * - some of the logs still can't be read
  * - invalidating a pipeline (by saving .pipeline.js) causes logs to empty and nothing shows up
  */
@@ -100,8 +100,6 @@ async function run () {
         }
 
         try {
-          // start tailing logfile
-          const tail = new Tail(logfilePath);
           // Get the file size and read the last 10 KB
           const stats = await fsPromises.stat(logfilePath);
           const start = Math.max(0, stats.size - 10 * 1024); // Start position for the last 100 KB
@@ -109,19 +107,26 @@ async function run () {
 
           readStream.on('data', (chunk) => {
             sendEvent({ message: 'log', data: chunk });
+            
+            // TODO: bug... deal with case where this endpoint is run b4 job starts
+            // start tailing logfile
+            const tail = new Tail(logfilePath, { follow: true });
+
+            // when contents of the file change, send those changes to the stream
+            const MAX_LINE_LENGTH = 1000;
+            tail.on('line', throttle(function (line) {
+              sendEvent({ message: 'log', data: line.substr(0, MAX_LINE_LENGTH) });
+            }, 100));
+            
+            tail.on('error', function () {
+              res.end();
+            });
           });
 
           readStream.on('error', (/* err */) => {
             res.status(500).send('Error reading log file');
           });
 
-          // when contents of the file change, send those changes to the stream
-          tail.on('line', function (line) {
-            sendEvent({ message: 'log', data: line });
-          });
-          tail.on('error', function () {
-            res.end();
-          });
         } catch (err) {
           res.status(500).send('Error getting log file stats');
         }

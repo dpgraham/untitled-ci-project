@@ -14,4 +14,6 @@ job('log massive file', function () {
   //   step(`sleep 0.01`);
   //   step(`echo ${j}`);
   // }
+
+  // TODO: bug ... should echo \n at the end so that logger doesn't miss last line
 });

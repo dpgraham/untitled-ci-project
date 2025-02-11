@@ -27,6 +27,7 @@
         "immer": "^10.1.1",
         "import-fresh": "^3.3.0",
         "lodash.debounce": "^4.0.8",
+        "lodash.throttle": "^4.1.1",
         "open": "^10.1.0",
         "picomatch": "^4.0.2",
         "portfinder": "^1.0.32",
