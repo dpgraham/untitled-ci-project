@@ -107,7 +107,7 @@ async function run () {
 
           readStream.on('data', (chunk) => {
             sendEvent({ message: 'log', data: chunk });
-            
+
             // TODO: bug... deal with case where this endpoint is run b4 job starts
             // start tailing logfile
             const tail = new Tail(logfilePath, { follow: true });
@@ -117,7 +117,7 @@ async function run () {
             tail.on('line', throttle(function (line) {
               sendEvent({ message: 'log', data: line.substr(0, MAX_LINE_LENGTH) });
             }, 100));
-            
+
             tail.on('error', function () {
               res.end();
             });

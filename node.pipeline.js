@@ -25,6 +25,7 @@ function loginGithubActionsNpmPackages () {
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
+// TODO: bug ... it's not showing status in /job page
 job('dependencies', () => {
   onFilesChanged('package*.json');
   loginGithubActionsNpmPackages();
