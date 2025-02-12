@@ -39,6 +39,7 @@ async function buildPipeline (pipelineFile) {
   }
 
   pipelineStore.getState().validatePipeline();
+  pipelineStore.getState().setLogfilePaths();
   const { isInvalidPipeline, invalidReason } = pipelineStore.getState();
   if (isInvalidPipeline) {
     logger.error(invalidReason.red);
@@ -53,6 +54,9 @@ async function buildPipeline (pipelineFile) {
     logger.error(`Failed to delete ${outputDir}`);
   }
 
+  // write all of the logfiles as empty files
+  await writeLogFiles(pipelineStore.getState().jobs);
+
   const { image: currentImage } = pipelineStore.getState();
 
   // Default to Alpine if no image is specified
@@ -60,6 +64,24 @@ async function buildPipeline (pipelineFile) {
     pipelineStore.getState().setImage('alpine:latest');
     logger.warn('No image specified in the pipeline. Defaulting to alpine:latest'.yellow);
   }
+}
+
+/**
+ * creates log file for each job, if file already exists
+ * it empties the file
+ * @param {*} jobs
+ */
+async function writeLogFiles (jobs) {
+  // write all of the logfiles as empty files
+  const fileWritePromises = [];
+  for (const job of jobs) {
+    fileWritePromises.push((async () => {
+      const jobDir = path.dirname(job.logFilePath);
+      await fs.promises.mkdir(jobDir, { recursive: true });
+      return await fs.promises.writeFile(job.logFilePath, '', { flag: 'w' });
+    })());
+  }
+  await Promise.all(fileWritePromises);
 }
 
 async function buildExecutor (pipelineFile) {
@@ -113,12 +135,7 @@ function printJobInfo (nextJobs) {
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
-  const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
-  pipelineStore.getState().setLogfilePath(logFilePath, job);
-  if (fs.existsSync(logFilePath)) {
-    await fs.promises.writeFile(logFilePath, '');
-  }
-  await fs.promises.mkdir(path.dirname(logFilePath), { recursive: true });
+  const { logFilePath } = job;
 
   // set the job ID
   pipelineStore.getState().setJobId(job);
@@ -131,7 +148,6 @@ async function runJob (executor, job) {
     }
     await fs.promises.mkdir(artifactsPathDest, { recursive: true });
   }
-  pipelineStore.getState().setJobFilePath(job, logFilePath);
   if (logStreams[logFilePath]) {
     logStreams[logFilePath].end();
     delete logStreams[logFilePath];
@@ -289,14 +305,12 @@ async function run ({ file, opts }) {
   const runAndWatchPipeline = async () => {
     try {
       const { outputDir } = pipelineStore.getState();
-      const logDir = path.join(outputDir, 'jobs');
       logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
-      if (fs.existsSync(logDir)) {
-        const files = fs.readdirSync(logDir);
-        for (const file of files) {
-          await fs.promises.rm(path.join(logDir, file), { recursive: true, force: true });
-        }
-      }
+      await fs.promises.rm(outputDir, { recursive: true, force: true });
+
+      // write all of the logfiles as empty files
+      await writeLogFiles(pipelineStore.getState().jobs);
+
       await runNextJobs(executor);
     } catch (error) {
       logger.error(`Pipeline execution failed`.red);

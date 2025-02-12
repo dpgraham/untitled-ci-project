@@ -38,6 +38,8 @@
     }
   };
 
+  // TODO: when event source ends, update messaging to indicate it's done
+
   eventSource.onerror = (error) => {
     eventSource.close(); // Close the connection on error
   };
@@ -94,25 +96,26 @@
 <main>
   <!-- TODO: if no "state" then show a loading indicator here -->
   {#if state}
-  <h4>PIPELINE: {state.pipelineFile}</h4>
-  <h4>STATUS: {state.result}</h4>
-  {#if !jobName && state && state.jobs}
-      {#each state.jobs as job}
-        {#if job.result !== 'skipped' }
-        <div class="job-card">
-          <a class="job-card-{job.status}" href="/?job={job.name}">
-            <Card class="job-card-{job.status}">
-              <h3>Job Name: {job.name}</h3>
-              <Content>{job.status}</Content>
-            </Card>
-          </a>
-        </div>
-        {/if}
-      {/each}
+  {#if !job && state && state.jobs}
+    <h4>PIPELINE: {state.pipelineFile}</h4>
+    <h4>STATUS: {state.result}</h4>
+    {#each state.jobs as job}
+      {#if job.result !== 'skipped' }
+      <div class="job-card">
+        <a class="job-card-{job.status}" href="/?job={job.name}">
+          <Card class="job-card-{job.status}">
+            <h3>Job Name: {job.name}</h3>
+            <Content>{job.status}</Content>
+          </Card>
+        </a>
+      </div>
+      {/if}
+    {/each}
   {/if}
   {#if job }
-    <div>{job.name}</div>
-    <div>ID: {job.id}</div>
+    <h4>JOB NAME: {job.name}</h4>
+    <h4>JOB ID: {job.id}</h4>
+    <h4>STATUS: {job.status}</h4>
     <div class="logs">
       {#each jobLogs as jobLog}{jobLog}<br>{/each}
     </div>

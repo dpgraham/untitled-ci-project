@@ -2,6 +2,7 @@ const { create } = require('zustand');
 const { produce } = require('immer');
 const picomatch = require('picomatch');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
 
 const JOB_STATUS = {
   PENDING: 'pending',
@@ -100,11 +101,11 @@ const createPipelineStore = (set) => ({
       }
     }
   })),
-  setLogfilePath: (path, job) => set((state) => produce(state, (draft) => {
-    for (const checkJob of draft.jobs) {
-      if (job.name === checkJob.name) {
-        checkJob.logfilePath = path;
-      }
+  setLogfilePaths: () => set((state) => produce(state, (draft) => {
+    const { outputDir } = state;
+    for (const job of draft.jobs) {
+      const logFilePath = path.join(outputDir, 'jobs', job.name, 'logs.log');
+      job.logFilePath = logFilePath;
     }
   })),
   setEnv: (envName, value, job, isSecret) => set((state) => produce(state, (draft) => {

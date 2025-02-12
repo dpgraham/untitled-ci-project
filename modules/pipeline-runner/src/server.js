@@ -74,7 +74,7 @@ async function run () {
           res.write(`data: ${JSON.stringify(data)}\n\n`);
         }
       };
-      const { logfilePath } = selectedJob || {};
+      const { logFilePath } = selectedJob || {};
 
       // ping the client to keep this alive
       const intervalId = setInterval(() => {
@@ -94,33 +94,27 @@ async function run () {
 
       // Stream the log file
       const streamLogFile = async () => {
-        if (!logfilePath) {
-          res.status(404).end();
-          return;
-        }
-
         try {
           // Get the file size and read the last 10 KB
-          const stats = await fsPromises.stat(logfilePath);
+          const stats = await fsPromises.stat(logFilePath);
           const start = Math.max(0, stats.size - 10 * 1024); // Start position for the last 100 KB
-          const readStream = fs.createReadStream(logfilePath, { encoding: 'utf8', start, end: stats.size }); // Limit to last 100 KB
+          const readStream = fs.createReadStream(logFilePath, { encoding: 'utf8', start, end: stats.size }); // Limit to last 100 KB
+
+          // TODO: bug... handle case where content is added to file but it only gets the last bits
+          const tail = new Tail(logFilePath, { follow: true });
+
+          // when contents of the file change, send those changes to the stream
+          const MAX_LINE_LENGTH = 1000;
+          tail.on('line', throttle(function (line) {
+            sendEvent({ message: 'log', data: line.substr(0, MAX_LINE_LENGTH) });
+          }, 100));
+
+          tail.on('error', function () {
+            res.end();
+          });
 
           readStream.on('data', (chunk) => {
             sendEvent({ message: 'log', data: chunk });
-
-            // TODO: bug... deal with case where this endpoint is run b4 job starts
-            // start tailing logfile
-            const tail = new Tail(logfilePath, { follow: true });
-
-            // when contents of the file change, send those changes to the stream
-            const MAX_LINE_LENGTH = 1000;
-            tail.on('line', throttle(function (line) {
-              sendEvent({ message: 'log', data: line.substr(0, MAX_LINE_LENGTH) });
-            }, 100));
-
-            tail.on('error', function () {
-              res.end();
-            });
           });
 
           readStream.on('error', (/* err */) => {
