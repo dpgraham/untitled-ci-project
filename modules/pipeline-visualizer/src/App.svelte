@@ -60,7 +60,7 @@
           dataArr = dataArr.slice(0, dataArr.length - 1);
         }
         jobLogs = [...jobLogs, ...dataArr];
-        // scrollToBottom(); // Scroll to the bottom after updating logs
+        scrollToBottom(); // Scroll to the bottom after updating logs
       }
     };
   }
@@ -82,14 +82,12 @@
   }
 
   // Function to scroll to the bottom of the logs
-  // TODO: 0 Get this working, it's not doing anything
-  // const scrollToBottom = () => {
-  //   const logsElement = document.querySelector('.logs');
-  //   if (logsElement) {
-  //     logsElement.scrollTop = logsElement.scrollHeight;
-  //     console.log('scrolling logs to bottom', logsElement.scrollTop, logsElement.scrollHeight);
-  //   }
-  // };
+  const scrollToBottom = () => {
+    const logsElement = document.querySelector('.logs');
+    if (logsElement) {
+      logsElement.scrollTop = logsElement.scrollHeight;
+    }
+  };
 
 </script>
 
@@ -131,7 +129,7 @@
   }
   .logs {
     height: 550px;
-    max-height: 75vh;
+    max-height: 70vh;
     overflow-y: auto;
     padding: 1em;
     text-align: left;

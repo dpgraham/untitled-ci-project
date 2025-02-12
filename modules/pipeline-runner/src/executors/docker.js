@@ -84,11 +84,29 @@ class DockerExecutor {
     await destContainer.container.putArchive(passthrough, { path: '/' });
   }
 
+  async exec (container, ...args) {
+    const state = await this._waitForContainerToUnpause(container);
+    if (!state.Running) {
+      const err = new Error('container is closed');
+      err.isKilled = true;
+      throw err;
+    }
+    try {
+      const res = await container.exec(...args);
+      return res;
+    } catch (err) {
+      // 409 status code means the container was stopped
+      if (err.statusCode === 409) {
+        err.isKilled = true;
+      }
+      throw err;
+    }
+  }
+
   async deleteFiles (files) {
     const dockerContainer = this.docker.getContainer(this.container.getId());
-    await this._waitForContainerToUnpause(dockerContainer);
     for (const file of files) {
-      const exec = await dockerContainer.exec({
+      const exec = await this.exec(dockerContainer, {
         Cmd: ['rm', slash(file.target)], // Command to delete the file
         AttachStdout: true,
         AttachStderr: true,
@@ -130,8 +148,7 @@ class DockerExecutor {
 
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
 
-    await this._waitForContainerToUnpause(dockerContainer);
-    const exec = await dockerContainer.exec({
+    const exec = await this.exec(dockerContainer, {
       Cmd: execCommand,
       AttachStdout: true,
       AttachStderr: true,
@@ -181,10 +198,7 @@ class DockerExecutor {
         const execInspect = await exec.inspect();
         const exitCode = execInspect.ExitCode;
 
-
-        // pull $CI_OUTPUT
-        await this._waitForContainerToUnpause(dockerContainer);
-        const ciOutput = await dockerContainer.exec({
+        const ciOutput = await this.exec(dockerContainer, {
           Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
           AttachStdout: true,
         });
@@ -231,8 +245,7 @@ class DockerExecutor {
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
     // kill the "sh" process which is what runs all processes
-    await this._waitForContainerToUnpause(dockerContainer);
-    const exec = await dockerContainer.exec({
+    const exec = await this.exec(dockerContainer, {
       Cmd: ['pkill', 'sh'], // You can use `-TERM` for graceful shutdown, or `-9` for forceful
       AttachStdout: true,
       AttachStderr: true
@@ -340,15 +353,25 @@ class DockerExecutor {
     ]);
   }
 
+  /**
+   * Wait for a container to either
+   * @param {*} container
+   * @returns
+   */
   async _waitForContainerToUnpause (container) {
-    let isPaused = true;
-    while (isPaused) {
+    let isPaused, isRestarting;
+
+    do {
       const containerInfo = await container.inspect();
-      isPaused = containerInfo.State.Paused;
-      if (isPaused) {
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before checking again
+      const state = containerInfo.State;
+      isPaused = state.Paused;
+      isRestarting = state.Restarting;
+      if (isPaused || isRestarting) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } else {
+        return state;
       }
-    }
+    } while (isPaused || isRestarting);
   }
 
   async pullArtifacts (srcContainerDir, destHostedDir) {

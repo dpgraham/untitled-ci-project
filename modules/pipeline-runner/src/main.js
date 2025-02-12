@@ -175,7 +175,7 @@ async function runJob (executor, job) {
     if (err.isKilled) {
       return;
     }
-    logger.error(err);
+    logger.error('Uncaught error:', err);
   }
 
   logStream.end(); // Close the log stream
@@ -232,6 +232,9 @@ async function runJob (executor, job) {
 
 async function restartJobs (executor, filePath) {
   const invalidatedJobs = pipelineStore.getState().resetJobs(filePath);
+  if (invalidatedJobs.length > 0) {
+    logger.info(`\n${filePath} changed. Re-running pipeline.`.gray);
+  }
 
   // kill all jobs that have been invalidated
   const promises = [];
@@ -243,7 +246,6 @@ async function restartJobs (executor, filePath) {
   // queue up and start running next jobs
   const hasInvalidatedAJob = invalidatedJobs.length > 0;
   if (hasInvalidatedAJob) {
-    logger.info(`\n${filePath} changed. Re-running pipeline.`.gray);
     pipelineStore.getState().enqueueJobs();
     debouncedRunNextJobs.cancel();
     await debouncedRunNextJobs(executor);
@@ -340,7 +342,6 @@ async function run ({ file, opts }) {
   });
 
   watcher.on('change', async (filePath) => {
-
     const { workDir } = pipelineStore.getState();
     filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
     await executor.copyFiles([

@@ -27,7 +27,7 @@ function loginGithubActionsNpmPackages () {
 
 // TODO: bug ... it's not showing status in /job page
 job('dependencies', () => {
-  onFilesChanged('package*.json');
+  onFilesChanged('modules/pipeline-runner/package*.json');
   loginGithubActionsNpmPackages();
   step('npm ci --loglevel verbose');
 });
