@@ -20,9 +20,9 @@
   eventSource.onmessage = (event) => {
     const obj = JSON.parse(event.data);
     if (obj.message === 'state') {
-      state = obj.state;
+      state = { ...obj.state };
       if (jobName) {
-        for (let checkJob of state.jobs) {
+        for (let checkJob of state.jobs || []) {
           if (checkJob.name === jobName) {
             job = checkJob;
             break;

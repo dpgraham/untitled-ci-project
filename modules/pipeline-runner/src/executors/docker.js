@@ -64,6 +64,7 @@ class DockerExecutor {
     return this.container;
   }
 
+  // TODO: 2 ... make this copy files to a container instead of this.container
   async copyFiles (files) {
     for await (const file of files) {
       await this.container.copyFilesToContainer([{
@@ -181,13 +182,13 @@ class DockerExecutor {
           }
         }
 
+
+        // if it's cloned container and the container was already removed,
+        // return that this "isKilled"
         if (!subcontainer && !this.runningJob) {
           reject({ isKilled: true });
           return;
         }
-
-        // if it's cloned container and the container was already removed,
-        // return that this "isKilled"
         if (subcontainer) {
           const isKilled = !this.subcontainers.has(subcontainer.id);
           if (isKilled) {

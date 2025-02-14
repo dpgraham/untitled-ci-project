@@ -36,6 +36,7 @@ async function buildPipeline (pipelineFile) {
   // close any open log streams
   for (const logStream of Object.keys(logStreams)) {
     logStreams[logStream].end();
+    delete logStreams[logStream];
   }
 
   pipelineStore.getState().validatePipeline();
@@ -119,6 +120,7 @@ async function buildExecutor (pipelineFile) {
   }
 }
 
+// TODO: 0 ... close all log streams when the pipeline is done
 const logStreams = {};
 let selectPromise;
 
@@ -148,10 +150,13 @@ async function runJob (executor, job) {
     }
     await fs.promises.mkdir(artifactsPathDest, { recursive: true });
   }
+  // TODO: delete log streams before exiting process
+  // TODO: re-use log streams instead of closing them
   if (logStreams[logFilePath]) {
     logStreams[logFilePath].end();
     delete logStreams[logFilePath];
   }
+  await fs.promises.writeFile(logFilePath, '');
   const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
   logStreams[logFilePath] = logStream;
 

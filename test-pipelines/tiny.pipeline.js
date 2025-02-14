@@ -32,6 +32,7 @@ job('skip me', function () {
 });
 
 job('print steps', function () {
+  onFilesChanged('./tiny/a.log');
   for (let i=0; i<20; i++) {
     step('sleep 1');
     step(`echo ${i}`)
