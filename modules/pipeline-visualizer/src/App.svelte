@@ -45,7 +45,7 @@
   };
 
   if (jobName) {
-    const jobEventSource = new EventSource('/logs/' + jobName);
+    const jobEventSource = new EventSource('/logs/' + jobName + '?t=' + new Date().getTime());
     jobEventSource.onmessage = (event) => {
       const { message, data } = JSON.parse(event.data);
       if (message === 'log') {

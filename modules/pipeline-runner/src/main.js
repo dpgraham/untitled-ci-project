@@ -56,7 +56,7 @@ async function buildPipeline (pipelineFile) {
   }
 
   // write all of the logfiles as empty files
-  await writeLogFiles(pipelineStore.getState().jobs);
+  await createOutputDir(pipelineStore.getState().jobs);
 
   const { image: currentImage } = pipelineStore.getState();
 
@@ -72,7 +72,7 @@ async function buildPipeline (pipelineFile) {
  * it empties the file
  * @param {*} jobs
  */
-async function writeLogFiles (jobs) {
+async function createOutputDir (jobs) {
   // write all of the logfiles as empty files
   const fileWritePromises = [];
   for (const job of jobs) {
@@ -120,7 +120,6 @@ async function buildExecutor (pipelineFile) {
   }
 }
 
-// TODO: 0 ... close all log streams when the pipeline is done
 const logStreams = {};
 let selectPromise;
 
@@ -132,6 +131,15 @@ function printJobInfo (nextJobs) {
     logger.info(`Running job: '${jobNames[0]}'`.blue);
   }
   // TODO: when a job is running, show dot indicator for progress + prevent timeouts
+}
+
+async function closeAllLogStreams () {
+  const promises = [];
+  for (const stream of Object.keys(logStreams)) {
+    promises.push(logStreams[stream].end());
+    delete logStreams[stream];
+  }
+  await Promise.allSettled(promises);
 }
 
 async function runJob (executor, job) {
@@ -150,15 +158,13 @@ async function runJob (executor, job) {
     }
     await fs.promises.mkdir(artifactsPathDest, { recursive: true });
   }
-  // TODO: delete log streams before exiting process
-  // TODO: re-use log streams instead of closing them
-  if (logStreams[logFilePath]) {
-    logStreams[logFilePath].end();
-    delete logStreams[logFilePath];
-  }
   await fs.promises.writeFile(logFilePath, '');
-  const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Create a writable stream to the log file
-  logStreams[logFilePath] = logStream;
+  let logStream = logStreams[logFilePath];
+  if (!logStream?.writable) {
+    logStream?.end();
+    logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+    logStreams[logFilePath] = logStream;
+  }
 
   // group the steps into one array of commands
   const commands = [];
@@ -199,7 +205,6 @@ async function runJob (executor, job) {
     logger.error('Uncaught error:', err);
   }
 
-  logStream.end(); // Close the log stream
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
   const pipelineStatus = pipelineStore.getState().getPipelineStatus();
@@ -216,34 +221,32 @@ async function runJob (executor, job) {
       logger.error(`\nPipeline is failing\n`.red);
     }
     if (pipelineStore.getState().exitOnDone) {
-      await executor.stopExec();
       if (require.main === module) {
         process.exit(exitCode);
+      } else {
+        return;
       }
     }
-    if (require.main !== module) {
-      await executor?.stop();
-    } else {
-      if (selectPromise) {
-        selectPromise.cancel();
+
+    if (selectPromise) {
+      selectPromise.cancel();
+    }
+    selectPromise = select({
+      message: 'Select next action',
+      choices: [
+        { name: 'quit', value: 'quit', description: 'Exit pipeline' },
+        // { name: 're-run', value: 'rerun', description: 'Re-run pipeline from beginning' },
+      ],
+    });
+    try {
+      const selection = await selectPromise;
+      if (selection === 'quit') {
+        logger.info('Stopping executor and exiting pipeline...'.gray);
+        await Promise.all([executor?.stop(), closeAllLogStreams()]);
+        if (require.main === module) { process.exit(0); }
       }
-      selectPromise = select({
-        message: 'Select next action',
-        choices: [
-          { name: 'quit', value: 'quit', description: 'Exit pipeline' },
-          // { name: 're-run', value: 'rerun', description: 'Re-run pipeline from beginning' },
-        ],
-      });
-      try {
-        const selection = await selectPromise;
-        if (selection === 'quit') {
-          logger.info('Stopping executor and exiting pipeline...'.gray);
-          await executor?.stop();
-          if (require.main === module) { process.exit(0); }
-        }
-      } catch (e) {
-        // prompt was cancelled if we reach here. do nothing.
-      }
+    } catch (e) {
+      // prompt was cancelled if we reach here. do nothing.
     }
     return;
   }
@@ -292,7 +295,7 @@ const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 
 const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
-async function run ({ file, opts }) {
+async function run ({ file, opts = {} }) {
   const pipelineFile = path.resolve(process.cwd(), file);
   let executor;
 
@@ -307,16 +310,16 @@ async function run ({ file, opts }) {
     }
   }
 
-  const runAndWatchPipeline = async () => {
+  const runPipeline = async (isWatchedProcess) => {
     try {
       const { outputDir } = pipelineStore.getState();
       logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
       await fs.promises.rm(outputDir, { recursive: true, force: true });
 
       // write all of the logfiles as empty files
-      await writeLogFiles(pipelineStore.getState().jobs);
+      await createOutputDir(pipelineStore.getState().jobs);
 
-      await runNextJobs(executor);
+      runNextJobs(executor);
     } catch (error) {
       logger.error(`Pipeline execution failed`.red);
       logger.error(error);
@@ -325,6 +328,22 @@ async function run ({ file, opts }) {
       }
       if (require.main === module) {process.exit(1);}
     }
+
+    if (isWatchedProcess) {return;}
+
+    // done when pipeline has passed
+    return await new Promise((resolve, reject) => {
+      pipelineStore.subscribe((state) => {
+        const pipelineStatus = state.getPipelineStatus();
+        if (pipelineStatus === PIPELINE_STATUS.PASSED) {
+          Promise.all([executor?.stop(), closeAllLogStreams()]).then(() => {
+            resolve();
+          });
+        } else if (pipelineStatus === PIPELINE_STATUS.FAILED) {
+          Promise.all([executor?.stop(), closeAllLogStreams()]).then(reject);
+        }
+      });
+    });
   };
 
   const err = await buildPipeline(pipelineFile);
@@ -332,18 +351,24 @@ async function run ({ file, opts }) {
     return;
   }
   executor = await buildExecutor(pipelineFile);
-  pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI));
+  const isProgrammatic = require.main !== module;
+  pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI) || isProgrammatic);
 
   if (!pipelineStore.getState().exitOnDone) {
     await runVisualizer();
   }
 
-  // Watch for file changes
-
-  // Initial run
-  runAndWatchPipeline();
   const pipelineDir = path.dirname(pipelineFile);
-  const { ignorePatterns, files } = pipelineStore.getState();
+  const { ignorePatterns, files, exitOnDone } = pipelineStore.getState();
+
+  // run the pipeline
+  const isWatchedProcess = require.main === module && !exitOnDone;
+  const pipelineRunner = runPipeline(isWatchedProcess);
+
+  // if it's being run programmatically or in CI mode then end it after first run is done
+  if (exitOnDone) {
+    return await pipelineRunner;
+  }
 
   // watch files changed
   const watcher = chokidar.watch(files, {
@@ -403,19 +428,6 @@ async function run ({ file, opts }) {
     logger.info(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`.gray);
     if (require.main === module) {process.exit(1);}
   });
-
-  if (require.main !== module) {
-    await new Promise((resolve, reject) => {
-      pipelineStore.subscribe((state) => {
-        const pipelineStatus = state.getPipelineStatus();
-        if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-          executor.stopExec().then(resolve);
-        } else if (pipelineStatus === PIPELINE_STATUS.FAILED) {
-          executor.stopExec().then(reject);
-        }
-      });
-    });
-  }
 }
 
 // Main execution
