@@ -178,7 +178,7 @@ class DockerExecutor {
           try {
             await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
           } catch (e) {
-            reject('failed to pull artifacts');
+            reject('failed to pull artifacts ' + e);
           }
         }
 
