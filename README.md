@@ -49,4 +49,4 @@ To run these pipelines locally do this
 
 Part 1: https://www.loom.com/share/cae86bef475c4238a3f0427e45e3da82?sid=5046095d-2475-4881-896d-ca905b317488
 
-Part 2: 
+Part 2: https://www.loom.com/share/fdf0d53a6e6b42a59c9cbdc7fa9fc81b?sid=2d88d513-0e4f-4857-abc9-82345c74bed0
