@@ -32,10 +32,6 @@ job('unit-test', () => {
 
 What this will do is install dependencies on a Node 22 docker container in the first stage. And then in the second stage, all the jobs with group name "tests" will be run simultaneously (up to a max concurrency 2). This is done by cloning the container from the first stage and then running them as one-off container workflows.
 
-## VIDEO DEMONSTRATION
-
-
-
 ## TRY IT OUT
 
 Carry-On uses Carry-On to run it's own validation pipelines!
