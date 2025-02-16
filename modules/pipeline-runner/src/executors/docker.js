@@ -53,7 +53,7 @@ class DockerExecutor {
     const imageName = typeof image === 'string' ? image : image.name;
 
     this.container = await new GenericContainer(imageName)
-      .withName(this.createValidContainerName(name) + randString)
+      .withName(this._createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
@@ -176,7 +176,7 @@ class DockerExecutor {
         // pull out the artifacts, if there are any
         if (artifactsDirSrc) {
           try {
-            await this.pullArtifacts(artifactsDirSrc, artifactsDirDest);
+            await this._pullArtifacts(artifactsDirSrc, artifactsDirDest);
           } catch (e) {
             reject('failed to pull artifacts');
           }
@@ -227,21 +227,26 @@ class DockerExecutor {
     // if no name provided, stop everything
     if (this.runningJob === name || !name) {
       await Promise.all([
-        this.stopMainExec(),
+        this._stopMainExec(),
         this._stopClonedContainers(),
       ]);
       return;
     }
 
     // if it's a subcontainer job, stop that
-    const subcontainer = this._findSubcontainerByName(name);
-    if (subcontainer) {
-      await this._destroyContainer(subcontainer);
-      return null;
+    for (const subcontainer of this.subcontainers) {
+      if (subcontainer.name === name) {
+        await this._destroyContainer(subcontainer);
+        return null;
+      }
     }
   }
 
-  async stopMainExec () {
+  /**
+   * kills the process running in the main container, but do
+   * not kill the container, leave it running
+   */
+  async _stopMainExec () {
     this.runningJob = null;
     const dockerContainer = this.docker.getContainer(this.container.getId());
 
@@ -252,30 +257,21 @@ class DockerExecutor {
       AttachStderr: true
     });
 
-    // Start the execution
     const killStream = await exec.start({ hijack: true, stdin: false });
     await new Promise((resolve) => {
       killStream.on('end', function () {
         resolve();
       });
       killStream.on('data', () => {
-        // for some reason, 'end' is only triggered when this event
-        // is set
+        // for some reason, 'end' is only triggered when this event is set
       });
     });
   }
 
   async stop () {
     return await Promise.all([
-      this.container && this.container.stop(),
+      this.container?.stop(),
       this._stopClonedContainers(),
-    ]);
-  }
-
-  async abort () {
-    return await Promise.all([
-      this._stopClonedContainers(),
-      this.container.stop(),
     ]);
   }
 
@@ -285,7 +281,7 @@ class DockerExecutor {
     }
   }
 
-  createValidContainerName (name) {
+  _createValidContainerName (name) {
     return name.replace(/\s+/g, '_') // Replace whitespace with underscores
                .replace(/[^a-zA-Z0-9_.-]/g, ''); // Remove invalid characters
   }
@@ -295,7 +291,7 @@ class DockerExecutor {
 
     const subcontainer = new Subcontainer();
 
-    // Step 1: Create a new image from the existing container
+    // create a new image that clones the main container
     const randString = Math.random().toString().substring(2, 10);
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);
@@ -309,21 +305,25 @@ class DockerExecutor {
       });
       subcontainer.setImage(imageName);
 
+      // if the job was invalidated while the image was being created,
+      // then remove the image
       if (!this.subcontainers.has(subcontainer.id)) {
         this.docker.getImage(imageName).remove({ force: true });
         return null;
       }
     }
 
-    // Step 2: Start a new container from the created image
+    // start a new container from this newly created image
     const newContainer = await new GenericContainer(imageName)
-      .withName(this.createValidContainerName(this.containerName + '_' + name + '_' + randString))
+      .withName(this._createValidContainerName(this.containerName + '_' + name + '_' + randString))
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
       .start();
 
     subcontainer.setContainer(newContainer);
 
+    // if the job was invalidated in the middle of the container being created,
+    // remove the container and image
     if (!this.subcontainers.has(subcontainer.id)) {
       await Promise.allSettled([
         this.docker.getImage(imageName).remove({ force: true }),
@@ -333,16 +333,6 @@ class DockerExecutor {
     }
 
     return subcontainer;
-  }
-
-  _findSubcontainerByName (name) {
-    let subcontainerToDestroy = null;
-    for (const subcontainer of this.subcontainers) {
-      if (subcontainer.name === name) {
-        subcontainerToDestroy = subcontainer;
-      }
-    }
-    return subcontainerToDestroy;
   }
 
   async _destroyContainer (subcontainer) {
@@ -375,7 +365,7 @@ class DockerExecutor {
     } while (isPaused || isRestarting);
   }
 
-  async pullArtifacts (srcContainerDir, destHostedDir) {
+  async _pullArtifacts (srcContainerDir, destHostedDir) {
     // Step 1: Get the archive from the source container directory
     const container = this.container.container;
     const archiveStream = await container.getArchive({ path: srcContainerDir });

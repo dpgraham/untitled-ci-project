@@ -32,11 +32,16 @@ async function run () {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      let sendEvent = (data) => {
-        if (res.writable) {res.write(`data: ${JSON.stringify(data)}\n\n`);}
-      };
       const onStateChange = (state) => {
         sendEvent({ message: 'state', state });
+      };
+
+      let sendEvent = (data) => {
+        if (res.writableEnded) {
+          pipelineStore.removeStateChangeHandler(onStateChange);
+          return;
+        }
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
       };
       pipelineStore.handleStateChange(onStateChange);
       sendEvent({ message: 'state', state: pipelineStore.getState()});
@@ -68,13 +73,15 @@ async function run () {
           break;
         }
       }
+
+      let tail;
+
       const sendEvent = (data) => {
-        if (res.writable) {
-          res.write(`data: ${JSON.stringify(data)}\n\n`, (err) => {
-            /* eslint-disable */
-            if (err) {console.debug('err sending data', err);}
-          });
+        if (res.writableEnded) {
+          tail.unwatch();
+          return;
         }
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
       };
       const { logFilePath } = selectedJob || {};
 
@@ -86,6 +93,7 @@ async function run () {
       // Clean up when the connection is closed
       req.on('close', () => {
         clearInterval(intervalId);
+        tail.unwatch();
         res.end();
       });
 
@@ -101,7 +109,7 @@ async function run () {
           const stats = await fsPromises.stat(logFilePath);
           const start = Math.max(0, stats.size - 10 * 1024); // Start position for the last 100 KB
           const readStream = fs.createReadStream(logFilePath, { encoding: 'utf8', start, end: stats.size }); // Limit to last 100 KB
-          const tail = new Tail(logFilePath, { follow: true });
+          tail = new Tail(logFilePath, { follow: true });
 
           // when contents of the file change, send thode changes to the stream
           const MAX_LINE_LENGTH = 1000;

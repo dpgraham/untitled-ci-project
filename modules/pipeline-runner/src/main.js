@@ -20,6 +20,8 @@ const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
+const logStreams = {};
+
 async function buildPipeline (pipelineFile) {
   // Clear previous definitions
   pipelineStore.getState().reset();
@@ -33,7 +35,7 @@ async function buildPipeline (pipelineFile) {
     return new Error(`invalid pipeline`);
   }
 
-  // close any open log streams
+  // close any already open log streams
   for (const logStream of Object.keys(logStreams)) {
     logStreams[logStream].end();
     delete logStreams[logStream];
@@ -56,7 +58,7 @@ async function buildPipeline (pipelineFile) {
   }
 
   // write all of the logfiles as empty files
-  await createOutputDir(pipelineStore.getState().jobs);
+  await createLogFiles(pipelineStore.getState().jobs);
 
   const { image: currentImage } = pipelineStore.getState();
 
@@ -68,12 +70,11 @@ async function buildPipeline (pipelineFile) {
 }
 
 /**
- * creates log file for each job, if file already exists
- * it empties the file
+ * creates log file for each job in the pipeline,
+ * if the log file already exists, clear the contents
  * @param {*} jobs
  */
-async function createOutputDir (jobs) {
-  // write all of the logfiles as empty files
+async function createLogFiles (jobs) {
   const fileWritePromises = [];
   for (const job of jobs) {
     fileWritePromises.push((async () => {
@@ -88,7 +89,6 @@ async function createOutputDir (jobs) {
 async function buildExecutor (pipelineFile) {
   const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
 
-  // Get the directory of the pipeline file
   const pipelineDir = path.dirname(pipelineFile);
   const workdir = pipelineStore.getState().workDir;
   const name = path.basename(pipelineFile);
@@ -99,12 +99,12 @@ async function buildExecutor (pipelineFile) {
     process.on('SIGINT', () => {
       // TODO: 1 set state here to indicate that it was aborted
       logger.info('Terminating pipeline'.gray);
-      executor.abort();
+      executor.stop();
       if (require.main === module) { process.exit(1); }
     });
     await executor.start({image: currentImage, workingDir: workdir, name });
 
-    // Copy files matching the glob pattern to the container
+    // copy files from host to container
     if (files) {
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
       const filesToCopy = filesArr.map((file) => ({
@@ -120,8 +120,7 @@ async function buildExecutor (pipelineFile) {
   }
 }
 
-const logStreams = {};
-let selectPromise;
+let promptPromise;
 
 function printJobInfo (nextJobs) {
   const jobNames = nextJobs.map(({name}) => name);
@@ -142,6 +141,12 @@ async function closeAllLogStreams () {
   await Promise.allSettled(promises);
 }
 
+/**
+ * Runs a job on the executor
+ * @param {*} executor The executor that abstracts the job execution
+ * @param {*} job The definition of the job
+ * @returns
+ */
 async function runJob (executor, job) {
   const state = pipelineStore.getState();
   const { outputDir } = state;
@@ -150,6 +155,7 @@ async function runJob (executor, job) {
   // set the job ID
   pipelineStore.getState().setJobId(job);
 
+  // empty out the artifacts directory
   let artifactsPathDest;
   if (job.artifactsDir) {
     artifactsPathDest = path.join(outputDir, 'jobs', job.name, 'artifacts');
@@ -158,7 +164,7 @@ async function runJob (executor, job) {
     }
     await fs.promises.mkdir(artifactsPathDest, { recursive: true });
   }
-  await fs.promises.writeFile(logFilePath, '');
+
   let logStream = logStreams[logFilePath];
   if (!logStream?.writable) {
     logStream?.end();
@@ -176,9 +182,7 @@ async function runJob (executor, job) {
   let exitCode;
   try {
     const opts = {
-      // if the job is part of a "group" we need to clone the executor so
-      // that it can be run in parallel
-      clone: !!job.group,
+      clone: !!job.group, // jobs that are part of a group are run in parallel and need to be cloned
       env: state.getEnv(job),
       secrets: state.getSecrets(job),
       name: job.name,
@@ -199,14 +203,17 @@ async function runJob (executor, job) {
       logger.info(`Job '${job.name}' passed.`.green);
     }
   } catch (err) {
+    // 'isKilled' means the job was killed by us so don't do anything
     if (err.isKilled) {
       return;
     }
     logger.error('Uncaught error:', err);
+    throw err;
   }
 
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
+  // when the job is done, check now if the pipeline has passed or failed
   const pipelineStatus = pipelineStore.getState().getPipelineStatus();
 
   // TODO: add a fail strategy option that kills a group once just one has failed
@@ -228,10 +235,9 @@ async function runJob (executor, job) {
       }
     }
 
-    if (selectPromise) {
-      selectPromise.cancel();
-    }
-    selectPromise = select({
+    // prompt user to select their next action
+    promptPromise?.cancel();
+    promptPromise = select({
       message: 'Select next action',
       choices: [
         { name: 'quit', value: 'quit', description: 'Exit pipeline' },
@@ -239,7 +245,7 @@ async function runJob (executor, job) {
       ],
     });
     try {
-      const selection = await selectPromise;
+      const selection = await promptPromise;
       if (selection === 'quit') {
         logger.info('Stopping executor and exiting pipeline...'.gray);
         await Promise.all([executor?.stop(), closeAllLogStreams()]);
@@ -254,13 +260,19 @@ async function runJob (executor, job) {
   await runNextJobs(executor);
 }
 
+/**
+ * When user changes a file, this gets triggered and jobs are re-run
+ * @param {*} executor
+ * @param {*} filePath The path to the file that was just changed
+ */
 async function restartJobs (executor, filePath) {
+  // get a list of jobs that were invalidated by the file change
   const invalidatedJobs = pipelineStore.getState().resetJobs(filePath);
   if (invalidatedJobs.length > 0) {
     logger.info(`\n${filePath} changed. Re-running pipeline.`.gray);
   }
 
-  // kill all jobs that have been invalidated
+  // kill invalidated jobs
   const promises = [];
   for (const invalidatedJob of invalidatedJobs) {
     promises.push(executor.stopExec(invalidatedJob));
@@ -276,8 +288,12 @@ async function restartJobs (executor, filePath) {
   }
 }
 
+/**
+ * Run the next set of jobs that are on deck
+ * @param {*} executor
+ */
 async function runNextJobs (executor) {
-  selectPromise?.cancel();
+  promptPromise?.cancel();
   pipelineStore.getState().enqueueJobs();
   const nextJobs = pipelineStore.getState().dequeueNextJobs();
 
@@ -291,15 +307,23 @@ async function runNextJobs (executor) {
   await Promise.all(jobs);
 }
 
+// debouncing 'runNextJobs' makes it so that it will wait for the user to
+// stop typing for 2s before running any jobs
 const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
-
 const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
 
+/**
+ * Entry point to Carry-On. This is where the pipeline is built and
+ * the jobs start running
+ * @param {*} param0
+ * @returns
+ */
 async function run ({ file, opts = {} }) {
   const pipelineFile = path.resolve(process.cwd(), file);
   let executor;
 
-  // add the workflow syntax (image, job, etc...) to global namespace unless user opts-out
+  // add the workflow syntax (image, job, etc...) to global namespace
+  // (unless user opted out via CLI flag)
   if (!opts.noGlobalVariables) {
     for (const key of Object.keys(apiNamespace)) {
       global[key] = apiNamespace[key];
@@ -309,42 +333,6 @@ async function run ({ file, opts = {} }) {
       global.helpers[key] = pipelineHelpers[key];
     }
   }
-
-  const runPipeline = async (isWatchedProcess) => {
-    try {
-      const { outputDir } = pipelineStore.getState();
-      logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
-      await fs.promises.rm(outputDir, { recursive: true, force: true });
-
-      // write all of the logfiles as empty files
-      await createOutputDir(pipelineStore.getState().jobs);
-
-      runNextJobs(executor);
-    } catch (error) {
-      logger.error(`Pipeline execution failed`.red);
-      logger.error(error);
-      if (executor) {
-        await executor.stop();
-      }
-      if (require.main === module) {process.exit(1);}
-    }
-
-    if (isWatchedProcess) {return;}
-
-    // done when pipeline has passed
-    return await new Promise((resolve, reject) => {
-      pipelineStore.subscribe((state) => {
-        const pipelineStatus = state.getPipelineStatus();
-        if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-          Promise.all([executor?.stop(), closeAllLogStreams()]).then(() => {
-            resolve();
-          });
-        } else if (pipelineStatus === PIPELINE_STATUS.FAILED) {
-          Promise.all([executor?.stop(), closeAllLogStreams()]).then(reject);
-        }
-      });
-    });
-  };
 
   const err = await buildPipeline(pipelineFile);
   if (err) {
@@ -363,14 +351,38 @@ async function run ({ file, opts = {} }) {
 
   // run the pipeline
   const isWatchedProcess = require.main === module && !exitOnDone;
-  const pipelineRunner = runPipeline(isWatchedProcess);
-
-  // if it's being run programmatically or in CI mode then end it after first run is done
-  if (exitOnDone) {
-    return await pipelineRunner;
+  try {
+    const { outputDir } = pipelineStore.getState();
+    logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
+    await fs.promises.rm(outputDir, { recursive: true, force: true });
+    await createLogFiles(pipelineStore.getState().jobs);
+    runNextJobs(executor);
+  } catch (error) {
+    logger.error(`Pipeline execution failed`.red);
+    logger.error(error);
+    if (executor) {
+      await executor.stop();
+    }
+    if (require.main === module) {process.exit(1);}
   }
 
-  // watch files changed
+  // if it's being run programmatically or in CI mode then end it after first run is done
+  if (!isWatchedProcess) {
+    return await new Promise((resolve, reject) => {
+      pipelineStore.subscribe((state) => {
+        const pipelineStatus = state.getPipelineStatus();
+        if (pipelineStatus === PIPELINE_STATUS.PASSED) {
+          Promise.all([executor?.stop(), closeAllLogStreams()]).then(() => {
+            resolve();
+          });
+        } else if (pipelineStatus === PIPELINE_STATUS.FAILED) {
+          Promise.all([executor?.stop(), closeAllLogStreams()]).then(reject);
+        }
+      });
+    });
+  }
+
+  // if it's interactive mode (ie: not 'exitOnDone') then watch for file changes
   const watcher = chokidar.watch(files, {
     persistent: true,
     cwd: pipelineDir,
@@ -413,7 +425,7 @@ async function run ({ file, opts = {} }) {
   });
 
   pipelineFileWatcher.on('change', async () => {
-    selectPromise?.cancel();
+    promptPromise?.cancel();
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();
     await executor.stopExec();
@@ -430,7 +442,7 @@ async function run ({ file, opts = {} }) {
   });
 }
 
-// Main execution
+// Main execution for when Carry-On is run via command line
 function main () {
   const program = new Command();
 
