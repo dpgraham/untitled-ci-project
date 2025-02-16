@@ -170,6 +170,8 @@ async function runJob (executor, job) {
     logStream?.end();
     logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
     logStreams[logFilePath] = logStream;
+  } else {
+    await fs.promises.writeFile(logFilePath, '', { flags: 'w' });
   }
 
   // group the steps into one array of commands
@@ -261,17 +263,23 @@ async function runJob (executor, job) {
 }
 
 /**
- * When user changes a file, this gets triggered and jobs are re-run
- * @param {*} executor
- * @param {*} filePath The path to the file that was just changed
+ * Get a list of jobs that are invalidated due to file being changed
+ * @param {*} filePath The file that was altered
  */
-async function restartJobs (executor, filePath) {
-  // get a list of jobs that were invalidated by the file change
+function _getInvalidatedJobs (filePath) {
   const invalidatedJobs = pipelineStore.getState().resetJobs(filePath);
   if (invalidatedJobs.length > 0) {
     logger.info(`\n${filePath} changed. Re-running pipeline.`.gray);
   }
+  return invalidatedJobs;
+}
 
+/**
+ * When user changes a file, this gets triggered and jobs are re-run
+ * @param {*} executor
+ * @param {*} invalidatedJobs An array of jobs that were invalidated and should be stopped
+ */
+async function restartJobs (executor, invalidatedJobs) {
   // kill invalidated jobs
   const promises = [];
   for (const invalidatedJob of invalidatedJobs) {
@@ -400,22 +408,24 @@ async function run ({ file, opts = {} }) {
   watcher.on('change', async (filePath) => {
     const { workDir } = pipelineStore.getState();
     filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
+    const invalidatedJobs = _getInvalidatedJobs(filePath);
     await executor.copyFiles([
       {
         source: path.join(path.dirname(pipelineFile), filePath),
         target: path.join(workDir, path.relative(files, filePath)),
       },
     ]);
-    restartJobs(executor, filePath);
+    restartJobs(executor, invalidatedJobs);
   });
 
   watcher.on('unlink', async (filePath) => {
     filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
     const { workDir } = pipelineStore.getState();
+    const invalidatedJobs = _getInvalidatedJobs(filePath);
     await executor.deleteFiles([{
       target: path.join(workDir, path.relative(files, filePath)),
     }]);
-    restartJobs(executor, filePath);
+    restartJobs(executor, invalidatedJobs);
   });
 
   // watch the pipeline file

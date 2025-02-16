@@ -292,6 +292,7 @@ class DockerExecutor {
     const subcontainer = new Subcontainer();
 
     // create a new image that clones the main container
+    // TODO: 0 ... stop cloning the image every single time for one group
     const randString = Math.random().toString().substring(2, 10);
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);

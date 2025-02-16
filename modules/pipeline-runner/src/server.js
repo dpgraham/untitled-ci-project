@@ -78,7 +78,7 @@ async function run () {
 
       const sendEvent = (data) => {
         if (res.writableEnded) {
-          tail.unwatch();
+          tail?.unwatch();
           return;
         }
         res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -93,7 +93,7 @@ async function run () {
       // Clean up when the connection is closed
       req.on('close', () => {
         clearInterval(intervalId);
-        tail.unwatch();
+        tail?.unwatch();
         res.end();
       });
 

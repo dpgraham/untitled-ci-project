@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
   import Card, { Content } from '@smui/card';
   import './global.scss';
+    import { rateLimitedFunction } from './utils';
 
   let state, jobLogs = [], job, id;
   
-  const MAX_LOG_SIZE = 100 * 1024;
+  const MAX_LOG_LENGTH = 100 * 1024;
 
   let logLength = 0;
 
@@ -38,21 +39,26 @@
     }
   };
 
-  // TODO: when event source ends, update messaging to indicate it's done
+  // TODO: 1 ... give user a link to the logfile download
+  // TODO: 1 ... when event source ends, update messaging to indicate it's done
 
   eventSource.onerror = (error) => {
     eventSource.close(); // Close the connection on error
   };
 
+  // limit speed of log rendering
+  const LOG_RATE_LIMIT = 0.01 * 1000;
+
   if (jobName) {
     const jobEventSource = new EventSource('/logs/' + jobName + '?t=' + new Date().getTime());
-    jobEventSource.onmessage = (event) => {
+    const jobEventSourceHandler = (event) => {
       const { message, data } = JSON.parse(event.data);
       if (message === 'log') {
         logLength += data.length;
         
-        // reduce the log size to be below the max threshold
-        while (logLength > MAX_LOG_SIZE) {
+        // limit the number of logs visible on the webpage to prevent
+        // performance issues
+        while (logLength > MAX_LOG_LENGTH) {
           let log = jobLogs.shift();
           logLength -= (log?.length || 0);
         }
@@ -65,6 +71,7 @@
         scrollToBottom(); // Scroll to the bottom after updating logs
       }
     };
+    jobEventSource.onmessage = rateLimitedFunction(jobEventSourceHandler, LOG_RATE_LIMIT);
   }
 
   if(mockState) {
