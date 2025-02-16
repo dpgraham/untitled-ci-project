@@ -44,3 +44,9 @@ To run these pipelines locally do this
 1) check out this repository
 2) run `npm ci` to install dependencies
 3) run `node . ./node.pipeline.js`
+
+## DEMO VIDEOS
+
+Part 1: https://www.loom.com/share/cae86bef475c4238a3f0427e45e3da82?sid=5046095d-2475-4881-896d-ca905b317488
+
+Part 2: 

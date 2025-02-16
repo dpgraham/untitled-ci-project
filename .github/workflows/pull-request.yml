@@ -18,8 +18,8 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    - run: echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc
-    - run: echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc
+    # - run: echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc
+    # - run: echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc
     - run: npm install
     - run: node . ./node.pipeline.js
     - name: Upload Artifacts
