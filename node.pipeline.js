@@ -7,7 +7,7 @@ workdir('ci/');
 concurrency(3);
 output('output-ci/');
 
-helpers.secretsFile('.env');
+//helpers.secretsFile('.env');
 
 function installNode () {
   step(`apk add --no-cache curl`);
