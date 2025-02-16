@@ -1,15 +1,20 @@
 image('node:22');
-files('../modules/pipeline-runner');
-ignore('node_modules/**/*');
+files('../modules/');
+ignore('**/node_modules/**/*');
 ignore('test/**/*');
 
 require('dotenv').config();
-
-secret('GH_NPM_TOKEN', process.env.GH_NPM_TOKEN);
+secret('NPM_TOKEN', process.env.NPM_TOKEN);
 
 job('publish-package', () => {
-  step('echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc');
-  step('echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc');
+  step('echo $NPM_TOKEN');
+  step('cd pipeline-visualizer');
   step('npm ci');
+  step('npm run build');
+  step('cd ../pipeline-runner');
+  step('npm ci');
+  
+  step('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc');
+  
   step('npm publish');
 });

@@ -17,17 +17,11 @@ function installNode () {
   step('node --version');
 }
 
-function loginGithubActionsNpmPackages () {
-  step('echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc');
-  step('echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc');
-}
-
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
 job('dependencies', () => {
   onFilesChanged('modules/pipeline-runner/package*.json');
-  loginGithubActionsNpmPackages();
   step('npm ci --loglevel verbose');
 });
 
@@ -45,6 +39,10 @@ job('lint', () => {
 
 job('unit-test', () => {
   image('docker:dind');
+  // TODO: 0
+      //* investigate why failing in Github, reproduce using "act" local runner
+      //* make it so that it does not fail when artifacts fails but rather gives a stern message
+  // artifacts('/ci/coverage');
   env('DOCKER_VERSION', '');
   // workdir('') // TODO: allow setting workdir here too
   copy('/ci'); // copies the files from the main container into this one
@@ -52,7 +50,6 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
-  artifacts('/ci/coverage');
 });
 
 // job('commit-and-push', () => {

@@ -1,5 +1,6 @@
 {
   "private": true,
+  "name": "carry-on-monorepo",
   "description": "",
   "main": "modules/pipeline-runner/src/main.js",
   "bin": {
@@ -23,6 +24,7 @@
     "dotenv": "^16.4.7",
     "eslint": "^8.57.1",
     "eslint-config-appium": "^4.7.0",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "@dpgraham/carry-on": "^0.0.10"
   }
 }

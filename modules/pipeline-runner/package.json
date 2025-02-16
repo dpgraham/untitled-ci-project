@@ -1,11 +1,15 @@
 {
     "name": "@dpgraham/carry-on",
-    "version": "0.0.5",
+    "version": "0.0.10",
     "description": "",
     "main": "./src/main.js",
     "bin": {
         "carry-on": "./src/main.js"
     },
+    "files": [
+        "dist/",
+        "src/"
+    ],
     "repository": "https://github.com/dpgraham/untitled-ci-project",
     "scripts": {
         "test": "jest --coverage",
