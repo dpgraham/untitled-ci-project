@@ -4,7 +4,7 @@ ignore('**/node_modules/**/*')
 ignore('.git/**/*');
 
 workdir('ci/');
-concurrency(3);
+concurrency(2);
 output('output-ci/');
 
 //helpers.secretsFile('.env');

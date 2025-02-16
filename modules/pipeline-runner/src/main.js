@@ -202,7 +202,8 @@ async function runJob (executor, job) {
     if (err.isKilled) {
       return;
     }
-    logger.error('Uncaught error:', err);
+    logger.error(`Job '${job.name}' errored with: `, err);
+    throw err;
   }
 
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
