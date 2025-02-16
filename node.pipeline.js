@@ -52,7 +52,7 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
-  artifacts('/ci/coverage');
+  //artifacts('/ci/coverage');
 });
 
 // job('commit-and-push', () => {
