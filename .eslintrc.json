@@ -14,5 +14,8 @@
     "promise/no-native": "off",
     "arrow-body-style": "off"
   },
-  "ignorePatterns": ["*.pipeline.js", "dist/"]
+  "globals": {
+    "expect": "readonly"
+  },
+  "ignorePatterns": ["*.pipeline.js", "dist/"] 
 }
