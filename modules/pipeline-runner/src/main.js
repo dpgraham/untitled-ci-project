@@ -107,6 +107,7 @@ async function buildExecutor (pipelineFile) {
     // copy files from host to container
     if (files) {
       let filesArr = getFiles(files, pipelineDir, ignorePatterns);
+      logger.info(`Copying files from '${files} (${filesArr.length})' to container`);
       const filesToCopy = filesArr.map((file) => ({
         source: path.join(pipelineDir, file),
         target: path.join(workdir, path.relative(files, file)),
@@ -341,6 +342,7 @@ async function run ({ file, opts = {} }) {
       global.helpers[key] = pipelineHelpers[key];
     }
   }
+  logger.info(`Running pipeline '${pipelineFile}'`);
 
   const err = await buildPipeline(pipelineFile);
   if (err) {

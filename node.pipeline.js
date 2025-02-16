@@ -17,17 +17,11 @@ function installNode () {
   step('node --version');
 }
 
-function loginGithubActionsNpmPackages () {
-  step('echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc');
-  step('echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc');
-}
-
 // TODO: allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
 job('dependencies', () => {
   onFilesChanged('modules/pipeline-runner/package*.json');
-  loginGithubActionsNpmPackages();
   step('npm ci --loglevel verbose');
 });
 

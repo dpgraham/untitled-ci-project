@@ -23,7 +23,7 @@ async function run () {
 
     // Serve static files from a directory
     // TODO: have a dev mode where it proxies the dev server
-    const staticAssets = path.join(__dirname, '..', '..', 'pipeline-visualizer', 'dist');
+    const staticAssets = path.join(__dirname, '..', 'dist');
     app.use(express.static(staticAssets));
 
     // New endpoint for Server-Sent Events

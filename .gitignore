@@ -3,3 +3,5 @@ coverage/
 ci-output/
 output-ci/
 .env
+dist/
+.npmrc

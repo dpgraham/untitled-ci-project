@@ -18,10 +18,11 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    # - run: echo "//npm.pkg.github.com/:_authToken=$GH_NPM_TOKEN" > ~/.npmrc
-    # - run: echo "@dpgraham:registry=https://npm.pkg.github.com" >> ~/.npmrc
     - run: npm install
-    - run: node . ./node.pipeline.js
+    - run: node . ./test-pipelines/tiny.pipeline.js
+      name: Run Carry-On from source
+    - run: npx carry-on ./node.pipeline.js
+      name: Run MR verification pipeline via Carry-On
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       if: always()
