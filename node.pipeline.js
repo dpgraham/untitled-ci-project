@@ -40,7 +40,7 @@ job('lint', () => {
 job('unit-test', () => {
   image('docker:dind');
   // TODO: 0
-      //* investigate why failing in Github, reproduce using "act" local runner
+      //* investigate why artifacts failing in Github, reproduce using "act" local runner
       //* make it so that it does not fail when artifacts fails but rather gives a stern message
   // artifacts('/ci/coverage');
   env('DOCKER_VERSION', '');

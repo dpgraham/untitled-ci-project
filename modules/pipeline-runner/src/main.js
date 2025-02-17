@@ -102,6 +102,7 @@ async function buildExecutor (pipelineFile) {
       executor.stop();
       if (require.main === module) { process.exit(1); }
     });
+    logger.info('Starting container. This may take some time if its first time using this image'.gray);
     await executor.start({image: currentImage, workingDir: workdir, name });
 
     // copy files from host to container

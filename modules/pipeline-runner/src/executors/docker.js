@@ -32,7 +32,7 @@ class DockerExecutor {
     });
 
     this.docker = new Docker(dockerOpts);
-    this.container = null;
+    this.testContainer = null;
     this.subcontainers = new Map();
   }
 
@@ -52,7 +52,7 @@ class DockerExecutor {
     const createOutputCommand = `mkdir -p ${outputDir}`;
     const imageName = typeof image === 'string' ? image : image.name;
 
-    this.container = await new GenericContainer(imageName)
+    this.testContainer = await new GenericContainer(imageName)
       .withName(this._createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
       .withWorkingDir(workingDir)
@@ -61,13 +61,13 @@ class DockerExecutor {
       .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
 
-    return this.container;
+    return this.testContainer;
   }
 
   // TODO: 2 ... make this copy files to a container instead of this.container
   async copyFiles (files) {
     for await (const file of files) {
-      await this.container.copyFilesToContainer([{
+      await this.testContainer.copyFilesToContainer([{
         source: slash(file.source),
         target: slash(file.target),
       }]);
@@ -105,7 +105,7 @@ class DockerExecutor {
   }
 
   async deleteFiles (files) {
-    const dockerContainer = this.docker.getContainer(this.container.getId());
+    const dockerContainer = this.docker.getContainer(this.testContainer.getId());
     for (const file of files) {
       const exec = await this.exec(dockerContainer, {
         Cmd: ['rm', slash(file.target)], // Command to delete the file
@@ -128,6 +128,7 @@ class DockerExecutor {
     this.runningJob = name;
     let subcontainer = null;
     if (clone || image) {
+      this.imageName = await this._commitClonedImage();
       subcontainer = await this._cloneContainer({ name, image });
       if (subcontainer === null) {
         const err = new Error();
@@ -137,13 +138,18 @@ class DockerExecutor {
 
       for await (const copyFiles of copy) {
         const { src } = copyFiles;
-        await this.copyFilesBetweenContainers(this.container, src, subcontainer.container);
+        await this.copyFilesBetweenContainers(this.testContainer, src, subcontainer.testContainer);
       }
+    } else if (this.imageName) {
+      const imageName = this.imageName;
+      delete this.imageName;
+      delete this.clonePromise;
+      await this.docker.getImage(imageName).remove({ force: true });
     }
 
     const dockerContainer = clone ?
-      subcontainer.container.container :
-      this.docker.getContainer(this.container.getId());
+      subcontainer.testContainer.container :
+      this.docker.getContainer(this.testContainer.getId());
 
     const execCommand = ['sh', '-c', commands.join('; ')];
 
@@ -168,7 +174,9 @@ class DockerExecutor {
         filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat((secretValue || '').length));
       }
       fsStream.write(filteredChunk);
-      fs.fsyncSync(fsStream.fd);
+      try {
+        fs.fsyncSync(fsStream.fd);
+      } catch (ign) { }
     });
 
     return new Promise((resolve, reject) => {
@@ -248,7 +256,7 @@ class DockerExecutor {
    */
   async _stopMainExec () {
     this.runningJob = null;
-    const dockerContainer = this.docker.getContainer(this.container.getId());
+    const dockerContainer = this.docker.getContainer(this.testContainer.getId());
 
     // kill the "sh" process which is what runs all processes
     const exec = await this.exec(dockerContainer, {
@@ -270,8 +278,9 @@ class DockerExecutor {
 
   async stop () {
     return await Promise.all([
-      this.container?.stop(),
+      this.testContainer?.stop(),
       this._stopClonedContainers(),
+      this.imageName && this.docker.getImage(this.imageName).remove({ force: true }),
     ]);
   }
 
@@ -286,9 +295,27 @@ class DockerExecutor {
                .replace(/[^a-zA-Z0-9_.-]/g, ''); // Remove invalid characters
   }
 
-  async _cloneContainer ({ name, image }) {
-    const dockerContainer = this.docker.getContainer(this.container.getId());
+  async _commitClonedImage () {
+    if (this.imageName) {
+      return this.imageName;
+    }
+    if (this.clonePromise) {
+      return await this.clonePromise;
+    }
+    this.clonePromise = new Promise((resolve) => {
+      const randString = Math.random().toString().substring(2, 10);
+      const container = this.testContainer.container;
+      container.commit({
+        repo: randString, // TODO: give it a name that will let it "dangle"
+        tag: 'latest',
+      }).then(() => {
+        resolve(randString);
+      });
+    });
+    return await this.clonePromise;
+  }
 
+  async _cloneContainer ({ name, image }) {
     const subcontainer = new Subcontainer();
 
     // create a new image that clones the main container
@@ -297,25 +324,15 @@ class DockerExecutor {
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);
 
-    let imageName = image;
     if (!image) {
-      imageName = randString; // Generate a random image name
-      await dockerContainer.commit({
-        repo: imageName,
-        tag: 'latest',
-      });
-      subcontainer.setImage(imageName);
+      subcontainer.setImage(this.imageName);
 
       // if the job was invalidated while the image was being created,
       // then remove the image
-      if (!this.subcontainers.has(subcontainer.id)) {
-        this.docker.getImage(imageName).remove({ force: true });
-        return null;
-      }
     }
 
     // start a new container from this newly created image
-    const newContainer = await new GenericContainer(imageName)
+    const newContainer = await new GenericContainer(this.imageName)
       .withName(this._createValidContainerName(this.containerName + '_' + name + '_' + randString))
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
@@ -326,10 +343,7 @@ class DockerExecutor {
     // if the job was invalidated in the middle of the container being created,
     // remove the container and image
     if (!this.subcontainers.has(subcontainer.id)) {
-      await Promise.allSettled([
-        this.docker.getImage(imageName).remove({ force: true }),
-        newContainer.container.remove({ force: true }),
-      ]);
+      await newContainer.container.remove({ force: true });
       return null;
     }
 
@@ -340,8 +354,7 @@ class DockerExecutor {
     // Remove the entry from subcontainers
     this.subcontainers.delete(subcontainer.id);
     return await Promise.allSettled([
-      subcontainer?.container?.container?.remove({ force: true }),
-      subcontainer?.image && this.docker.getImage(subcontainer.image).remove({ force: true })
+      subcontainer?.testContainer?.container?.remove({ force: true }),
     ]);
   }
 
@@ -368,7 +381,7 @@ class DockerExecutor {
 
   async _pullArtifacts (srcContainerDir, destHostedDir) {
     // Step 1: Get the archive from the source container directory
-    const container = this.container.container;
+    const container = this.testContainer.container;
     const archiveStream = await container.getArchive({ path: srcContainerDir });
 
     // Step 2: Create a writable stream to the destination directory on the host
@@ -396,7 +409,7 @@ class DockerExecutor {
 
 class Subcontainer {
   setName (name) { this.name = name; }
-  setContainer (container) { this.container = container; }
+  setContainer (container) { this.testContainer = container; }
   setImage (image) { this.image = image; }
   setId (id) { this.id = id; }
 }
