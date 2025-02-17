@@ -33,8 +33,9 @@
           }
         }
         // if ID is different, it means the job was restarted so 
-        // clear the logs
-        if (id !== job?.id) {
+        // clear the logs. Also clear logs if status changed to queued or pending
+        const status = job.status;
+        if (id !== job?.id || ['queued', 'pending'].includes(status)) {
           jobLogs = [];
           id = job.id;
         }

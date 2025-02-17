@@ -197,7 +197,7 @@ async function runJob (executor, job) {
     };
     const runOutput = await executor.run(commands, logStream, opts);
     exitCode = runOutput.exitCode;
-    
+
     if (exitCode !== 0) {
       // TODO: add emoji prefixes to all of the loggers to make it more colorful
       logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
@@ -348,6 +348,8 @@ async function run ({ file, opts = {} }) {
   const pipelineFile = path.resolve(process.cwd(), file);
   let executor;
 
+  pipelineStore.getState().setStatus(PIPELINE_STATUS.QUEUED);
+
   // add the workflow syntax (image, job, etc...) to global namespace
   // (unless user opted out via CLI flag)
   if (!opts.noGlobalVariables) {
@@ -361,21 +363,22 @@ async function run ({ file, opts = {} }) {
   }
   logger.info(`Running pipeline '${pipelineFile}'`);
 
+  const isProgrammatic = require.main !== module;
+  pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI) || isProgrammatic);
+
+  if (!pipelineStore.getState().exitOnDone) {
+    await runVisualizer();
+  }
+
   const err = await buildPipeline(pipelineFile);
   if (err) {
     return;
   }
   executor = await buildExecutor(pipelineFile);
-  const isProgrammatic = require.main !== module;
-  pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI) || isProgrammatic);
-
-  // TODO: 0... visualizer should be loaded right away
-  if (!pipelineStore.getState().exitOnDone) {
-    await runVisualizer();
-  }
 
   const pipelineDir = path.dirname(pipelineFile);
   const { ignorePatterns, files, exitOnDone } = pipelineStore.getState();
+  pipelineStore.getState().setStatus(PIPELINE_STATUS.IN_PROGRESS);
 
   // run the pipeline
   const isWatchedProcess = require.main === module && !exitOnDone;

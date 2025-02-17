@@ -143,7 +143,9 @@ class DockerExecutor {
     this.runningJob = name;
     let subcontainer = null;
     if (clone || image) {
-      this.imageName = await this._commitClonedImage();
+      if (!image) {
+        this.imageName = await this._commitClonedImage();
+      }
       subcontainer = await this._cloneContainer({ name, image });
       if (subcontainer === null) {
         const err = new Error();
@@ -234,6 +236,11 @@ class DockerExecutor {
           out = chunk.toString(); // Log the CI_OUTPUT to the console
           out = out.substr(8).trim();
           resolve({ exitCode, output: out });
+          // TODO: 0... add debugging statements throughout this file so I can
+          //       better investigate when something goes wrong
+        });
+        outputStream.on('error', (err) => {
+          reject(new Error(`failed to write output to $CI_OUTPUT err=${err}`));
         });
         if (subcontainer) {
           this._destroyContainer(subcontainer);
@@ -319,13 +326,9 @@ class DockerExecutor {
       return await this.clonePromise;
     }
     this.clonePromise = new Promise((resolve) => {
-      const randString = Math.random().toString().substring(2, 10);
       const container = this.testContainer.container;
-      container.commit({
-        repo: randString, // TODO: give it a name that will let it "dangle"
-        tag: 'latest',
-      }).then(() => {
-        resolve(randString);
+      container.commit().then((res) => {
+        resolve(res.Id);
       });
     });
     return await this.clonePromise;
@@ -348,7 +351,7 @@ class DockerExecutor {
     }
 
     // start a new container from this newly created image
-    const newContainer = await new GenericContainer(this.imageName)
+    const newContainer = await new GenericContainer(image || this.imageName)
       .withName(this._createValidContainerName(this.containerName + '_' + name + '_' + randString))
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)

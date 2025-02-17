@@ -20,6 +20,7 @@ const JOB_RESULT = {
 };
 
 const PIPELINE_STATUS = {
+  QUEUED: 'queued',
   IN_PROGRESS: 'in progress',
   PASSED: 'passed',
   FAILED: 'failed',
