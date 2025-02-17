@@ -8,7 +8,7 @@ let currentJob = null;
 /**
  * Files that are copied from local host machine to the main docker container
  *
- * @param {string} globPattern 
+ * @param {string} globPattern
  */
 apiNamespace.files = (globPattern) => {
   pipelineStore.getState().setFiles(globPattern);
@@ -16,10 +16,10 @@ apiNamespace.files = (globPattern) => {
 
 /**
  * File patterns to exclude from files
- * 
+ *
  * This is to exclude things like "node_modules/"
  *
- * @param  {...string} patterns 
+ * @param  {...string} patterns
  */
 apiNamespace.ignore = (...patterns) => {
   pipelineStore.getState().addIgnorePatterns(patterns);
@@ -63,7 +63,7 @@ apiNamespace.env = (name, value) => {
 
 /**
  * Set a secret single environment variable in pipeline or a job
- * 
+ *
  * The difference between this and "env" is that secrets are redacted from logs via regex
  * matching
  *
@@ -79,7 +79,7 @@ apiNamespace.secret = (name, value) => {
 
 /**
  * A command to be run inside of a job.
- * 
+ *
  * These can only be defined inside job(...) and are run sequentially in order
  * of when they were defined
  * @param {string} command SH command
@@ -90,7 +90,7 @@ apiNamespace.step = (command) => {
 
 /**
  * The directory in the host machine where job output should be saved to
- * 
+ *
  * Default is "ci-output/"
  *
  * @param {string} dir
@@ -103,9 +103,9 @@ apiNamespace.output = (dir) => {
 
 /**
  * Limits number of containers allowed to run concurrently
- * 
+ *
  * Default is 2
- * @param {number} concurrency 
+ * @param {number} concurrency
  */
 apiNamespace.concurrency = (concurrency) => {
   pipelineStore.getState().setMaxConcurrency(concurrency);
@@ -114,7 +114,7 @@ apiNamespace.concurrency = (concurrency) => {
 /**
  * Path in container where files are copied to and where commands are run
  *
- * @param {string} workdir 
+ * @param {string} workdir
  */
 apiNamespace.workdir = (workdir) => {
   pipelineStore.getState().setWorkDir(workdir);
@@ -122,11 +122,11 @@ apiNamespace.workdir = (workdir) => {
 
 /**
  * Defined inside a job so that the job is only re-run if these files are updated
- * 
+ *
  * This is so that you don't re-run jobs needlessly. For example, if you have a NodeJS
  * pipeline that installs dependencies, you would set "onFilesChanged('package*.json')"
  * so that it only re-runs when package.json or package-lock.json is updated
- * @param {string} pattern 
+ * @param {string} pattern
  */
 apiNamespace.onFilesChanged = (pattern) => {
   pipelineStore.getState().setOnFilesChanged(pattern, currentJob);
@@ -134,12 +134,12 @@ apiNamespace.onFilesChanged = (pattern) => {
 
 /**
  * Make the job part of a group
- * 
+ *
  * By making a job part of a group, all the jobs in the group will be run concurrently
  * (up to a limit) instead of being run sequentially. Because they're being run
  * sequentially, the containers they run in will be clones of the main container
  *
- * @param {string} name 
+ * @param {string} name
  */
 apiNamespace.group = (name) => {
   pipelineStore.getState().setGroup(name, currentJob);
@@ -147,9 +147,9 @@ apiNamespace.group = (name) => {
 
 /**
  * Copy files from the main container to a clone container
- * 
+ *
  * This is only applicable if you set "group" or "image" in a job
- * @param {string} src 
+ * @param {string} src
  */
 apiNamespace.copy = (src) => {
   pipelineStore.getState().addCopy(src, currentJob);
@@ -157,7 +157,7 @@ apiNamespace.copy = (src) => {
 
 /**
  * Save artifacts from container to the host. Can be found in output dir
- * @param {string} artifactsDir 
+ * @param {string} artifactsDir
  */
 apiNamespace.artifacts = (artifactsDir) => {
   pipelineStore.getState().setArtifactsDir(artifactsDir, currentJob);

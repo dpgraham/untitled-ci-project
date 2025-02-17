@@ -66,13 +66,17 @@ class DockerExecutor {
     return this.testContainer;
   }
 
-  // TODO: 2 ... make this copy files to a container instead of this.container
   async copyFiles (files) {
     for await (const file of files) {
       await this.testContainer.copyFilesToContainer([{
         source: slash(file.source),
         target: slash(file.target),
       }]);
+    }
+    if (this.imageName) {
+      delete this.imageName;
+      delete this.clonePromise;
+      this.imageName = await this._commitClonedImage();
     }
   }
 
@@ -122,6 +126,13 @@ class DockerExecutor {
           if (exitCode === 0) { resolve(exitCode); } else { reject(exitCode); }
         });
       });
+    }
+
+    // clone the main image again
+    if (this.imageName) {
+      delete this.imageName;
+      delete this.clonePromise;
+      this.imageName = await this._commitClonedImage();
     }
   }
 
