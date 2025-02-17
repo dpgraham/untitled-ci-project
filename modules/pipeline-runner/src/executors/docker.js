@@ -52,6 +52,8 @@ class DockerExecutor {
     const createOutputCommand = `mkdir -p ${outputDir}`;
     const imageName = typeof image === 'string' ? image : image.name;
 
+    // TODO: 0 this started breaking at 5dcc5b82551d799bfef274b4fa003c24a30077f1
+    // what caused this to start happening?
     this.testContainer = await new GenericContainer(imageName)
       .withName(this._createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })

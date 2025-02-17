@@ -2,10 +2,13 @@
   import { onMount } from 'svelte';
   import Card, { Content } from '@smui/card';
   import './global.scss';
-    import { rateLimitedFunction } from './utils';
+  import { rateLimitedFunction } from './utils';
 
-  let state, jobLogs = [], job, id;
-  
+  let state = $state({})
+  let jobLogs = $state([])
+  let job = $state(null)
+  let id;
+
   const MAX_LOG_LENGTH = 100 * 1024;
 
   let logLength = 0;
@@ -23,7 +26,7 @@
     if (obj.message === 'state') {
       state = { ...obj.state };
       if (jobName) {
-        for (let checkJob of state.jobs || []) {
+        for (let checkJob of state?.jobs || []) {
           if (checkJob.name === jobName) {
             job = checkJob;
             break;
@@ -33,7 +36,7 @@
         // clear the logs
         if (id !== job?.id) {
           jobLogs = [];
-          id = job?.id;
+          id = job.id;
         }
       }
     }
@@ -97,9 +100,11 @@
       logsElement.scrollTop = logsElement.scrollHeight;
     }
   };
-
 </script>
 
+<svelte:head>
+  <title>{jobName || state.pipelineFileBasename} -- Carry-On</title>
+</svelte:head>
 <main>
   <!-- TODO: if no "state" then show a loading indicator here -->
   {#if state}

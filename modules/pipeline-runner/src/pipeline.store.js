@@ -214,8 +214,11 @@ const createPipelineStore = (set) => ({
   setExitOnDone: (exitOnDone) => set({ exitOnDone }),
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
-  pipelineFile: null, // Add this line to store the pipeline file path
-  setPipelineFile: (filePath) => set({ pipelineFile: filePath }), // Add this setter function
+  pipelineFile: null,
+  setPipelineFile: (filePath) => set({
+    pipelineFile: filePath,
+    pipelineFileBasename: path.basename(filePath),
+  }),
   setPipelineResult: (result) => set({ result }),
   getPipelineStatus: () => {
     let jobs = pipelineStore.getState().jobs;

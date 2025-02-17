@@ -94,6 +94,7 @@ window.MOCK_STATE = {
   'outputDir': 'output-ci/',
   'workDir': '/ci/',
   'pipelineFile': 'C:\\Users\\dpgra\\code\\untitled-ci-project\\node.pipeline.js',
+  'pipelineFileBasename': 'node.pipeline.js',
   'env': {
     'GH_NPM_TOKEN': 'ghp_FR9PB**************',
     'DOCKER_USERNAME': 'dpgraham',
