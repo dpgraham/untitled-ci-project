@@ -197,6 +197,7 @@ async function runJob (executor, job) {
     };
     const runOutput = await executor.run(commands, logStream, opts);
     exitCode = runOutput.exitCode;
+    
     if (exitCode !== 0) {
       // TODO: add emoji prefixes to all of the loggers to make it more colorful
       logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
@@ -277,28 +278,6 @@ function _getInvalidatedJobs (filePath) {
 }
 
 /**
- * When user changes a file, this gets triggered and jobs are re-run
- * @param {*} executor
- * @param {*} invalidatedJobs An array of jobs that were invalidated and should be stopped
- */
-async function restartJobs (executor, invalidatedJobs) {
-  // kill invalidated jobs
-  const promises = [];
-  for (const invalidatedJob of invalidatedJobs) {
-    promises.push(executor.stopExec(invalidatedJob));
-  }
-  await Promise.all(promises);
-
-  // queue up and start running next jobs
-  const hasInvalidatedAJob = invalidatedJobs.length > 0;
-  if (hasInvalidatedAJob) {
-    pipelineStore.getState().enqueueJobs();
-    debouncedRunNextJobs.cancel();
-    await debouncedRunNextJobs(executor);
-  }
-}
-
-/**
  * Run the next set of jobs that are on deck
  * @param {*} executor
  */
@@ -321,6 +300,43 @@ async function runNextJobs (executor) {
 // stop typing for 2s before running any jobs
 const DEBOUNCE_MINIMUM = 2 * 1000; // 2 seconds
 const debouncedRunNextJobs = debounce(runNextJobs, DEBOUNCE_MINIMUM);
+
+async function handleFileChange (executor, filePath, isDeletion = false) {
+  const { workDir, pipelineFile, files } = pipelineStore.getState();
+  filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
+  const invalidatedJobs = _getInvalidatedJobs(filePath);
+
+  // queue up next jobs
+  const hasInvalidatedAJob = invalidatedJobs.length > 0;
+  if (hasInvalidatedAJob) {
+    pipelineStore.getState().enqueueJobs();
+    debouncedRunNextJobs.cancel();
+  }
+
+  // kill invalidated jobs
+  const promises = [];
+  for (const invalidatedJob of invalidatedJobs) {
+    promises.push(executor.stopExec(invalidatedJob));
+  }
+  await Promise.all(promises);
+
+  // update the files (delete or copy) in the container
+  if (isDeletion) {
+    await executor.deleteFiles([{
+      target: path.join(workDir, path.relative(files, filePath)),
+    }]);
+  } else {
+    await executor.copyFiles([{
+      source: path.join(path.dirname(pipelineFile), filePath),
+      target: path.join(workDir, path.relative(files, filePath)),
+    }]);
+  }
+
+  // run queued jobs
+  if (hasInvalidatedAJob) {
+    await debouncedRunNextJobs(executor);
+  }
+}
 
 /**
  * Entry point to Carry-On. This is where the pipeline is built and
@@ -353,6 +369,7 @@ async function run ({ file, opts = {} }) {
   const isProgrammatic = require.main !== module;
   pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI) || isProgrammatic);
 
+  // TODO: 0... visualizer should be loaded right away
   if (!pipelineStore.getState().exitOnDone) {
     await runVisualizer();
   }
@@ -409,26 +426,11 @@ async function run ({ file, opts = {} }) {
   });
 
   watcher.on('change', async (filePath) => {
-    const { workDir } = pipelineStore.getState();
-    filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
-    const invalidatedJobs = _getInvalidatedJobs(filePath);
-    await executor.copyFiles([
-      {
-        source: path.join(path.dirname(pipelineFile), filePath),
-        target: path.join(workDir, path.relative(files, filePath)),
-      },
-    ]);
-    restartJobs(executor, invalidatedJobs);
+    return await handleFileChange(executor, filePath);
   });
 
   watcher.on('unlink', async (filePath) => {
-    filePath = path.isAbsolute(filePath) ? path.relative(path.dirname(pipelineFile), filePath) : filePath;
-    const { workDir } = pipelineStore.getState();
-    const invalidatedJobs = _getInvalidatedJobs(filePath);
-    await executor.deleteFiles([{
-      target: path.join(workDir, path.relative(files, filePath)),
-    }]);
-    restartJobs(executor, invalidatedJobs);
+    return await handleFileChange(executor, filePath, true);
   });
 
   // watch the pipeline file

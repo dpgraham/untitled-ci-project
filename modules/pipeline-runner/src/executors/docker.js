@@ -74,6 +74,34 @@ class DockerExecutor {
       }]);
     }
     if (this.imageName) {
+      await this.docker.getImage(this.imageName).remove({ force: true });
+      delete this.imageName;
+      delete this.clonePromise;
+      this.imageName = await this._commitClonedImage();
+    }
+  }
+
+  async deleteFiles (files) {
+    const dockerContainer = this.docker.getContainer(this.testContainer.getId());
+    for (const file of files) {
+      const exec = await this.exec(dockerContainer, {
+        Cmd: ['rm', slash(file.target)], // Command to delete the file
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      const stream = await exec.start({ hijack: true, stdin: false });
+      await new Promise((resolve, reject) => {
+        stream.on('end', async () => {
+          const execInspect = await exec.inspect();
+          const exitCode = execInspect.ExitCode;
+          if (exitCode === 0) { resolve(exitCode); } else { reject(exitCode); }
+        });
+      });
+    }
+
+    // clone the main image again
+    if (this.imageName) {
+      await this.docker.getImage(this.imageName).remove({ force: true });
       delete this.imageName;
       delete this.clonePromise;
       this.imageName = await this._commitClonedImage();
@@ -107,32 +135,6 @@ class DockerExecutor {
         err.isKilled = true;
       }
       throw err;
-    }
-  }
-
-  async deleteFiles (files) {
-    const dockerContainer = this.docker.getContainer(this.testContainer.getId());
-    for (const file of files) {
-      const exec = await this.exec(dockerContainer, {
-        Cmd: ['rm', slash(file.target)], // Command to delete the file
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-      const stream = await exec.start({ hijack: true, stdin: false });
-      await new Promise((resolve, reject) => {
-        stream.on('end', async () => {
-          const execInspect = await exec.inspect();
-          const exitCode = execInspect.ExitCode;
-          if (exitCode === 0) { resolve(exitCode); } else { reject(exitCode); }
-        });
-      });
-    }
-
-    // clone the main image again
-    if (this.imageName) {
-      delete this.imageName;
-      delete this.clonePromise;
-      this.imageName = await this._commitClonedImage();
     }
   }
 
@@ -309,6 +311,7 @@ class DockerExecutor {
   }
 
   async _commitClonedImage () {
+    // TODO: 0... make image name a "dangleable" name
     if (this.imageName) {
       return this.imageName;
     }
