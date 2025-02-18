@@ -404,6 +404,7 @@ class DockerExecutor {
   async _pullArtifacts (srcContainerDir, destHostedDir) {
     // get the archive from the source container directory
     const container = this.testContainer.container;
+    await this._waitForContainerToUnpause(container);
     const archiveStream = await container.getArchive({ path: srcContainerDir });
 
     // create a writable stream to the destination directory on the host
