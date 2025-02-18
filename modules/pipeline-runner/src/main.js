@@ -212,7 +212,7 @@ async function runJob (executor, job) {
     if (err.isKilled) {
       return;
     }
-    logger.error('Uncaught error:', err);
+    logger.error(`job=${job.name} failed with error ${err}`);
     throw err;
   }
 

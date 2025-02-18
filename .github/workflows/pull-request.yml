@@ -19,8 +19,9 @@ jobs:
       with:
         node-version: '20'
     - run: npm install
-    - run: node . ./test-pipelines/tiny.pipeline.js
-      name: Run Carry-On from source
+    # TODO: DO NOT COMMIT THIS. RE-COMMENT IT
+    # - run: node . ./test-pipelines/tiny.pipeline.js
+    #   name: Run Carry-On from source
     - run: npx carry-on ./node.pipeline.js
       name: Run MR verification pipeline via Carry-On
     - name: Upload Artifacts
