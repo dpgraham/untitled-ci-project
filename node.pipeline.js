@@ -50,7 +50,8 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
-  step('ls -lah /ci/coverage')
+  step('ls -lah /ci/coverage');
+  step('sleep 20');
 });
 
 // job('commit-and-push', () => {
