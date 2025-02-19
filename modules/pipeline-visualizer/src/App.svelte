@@ -111,7 +111,7 @@
   {#if state}
   {#if !job && state && state.jobs}
     <h4>PIPELINE: {state.pipelineFile}</h4>
-    <h4>STATUS: {state.result}</h4>
+    <h4>STATUS: {state.status}</h4>
     {#each state.jobs as job}
       {#if job.result !== 'skipped' }
       <div class="job-card">

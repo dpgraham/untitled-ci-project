@@ -54,6 +54,7 @@ const createPipelineStore = (set) => ({
     if (pendingJob) {
       group = pendingJob.group;
       pendingJob.status = JOB_STATUS.QUEUED;
+      draft.status = PIPELINE_STATUS.IN_PROGRESS;
     }
 
     // any other jobs in the group need to be queued to
@@ -220,27 +221,26 @@ const createPipelineStore = (set) => ({
     pipelineFile: filePath,
     pipelineFileBasename: path.basename(filePath),
   }),
-  setPipelineResult: (result) => set({ result }),
-  getPipelineStatus: () => {
-    let jobs = pipelineStore.getState().jobs;
+  setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
+    let jobs = draft.jobs;
+    for (const checkJob of jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.status = status;
+      }
+    }
+
+    // update the pipeline status in response to the job status changing
     jobs = jobs.filter((job) => !job.skip);
     const allPassed = jobs.every((job) => job.status === JOB_STATUS.PASSED);
     const anyFailed = jobs.some((job) => job.status === JOB_STATUS.FAILED);
     const noneQueued = jobs.every((job) => job.status !== JOB_STATUS.QUEUED);
     const noneRunning = jobs.every((job) => job.status !== JOB_STATUS.RUNNING);
     if (allPassed && noneQueued && noneRunning) {
-      return PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
+      draft.status = PIPELINE_STATUS.PASSED; // Set to PASSED if all jobs are PASSED
     } else if (anyFailed && noneQueued && noneRunning) {
-      return PIPELINE_STATUS.FAILED; // Set to FAILED if at least one job is FAILED
+      draft.status = PIPELINE_STATUS.FAILED; // Set to FAILED if at least one job is FAILED
     } else {
-      return PIPELINE_STATUS.IN_PROGRESS; // Set to IN_PROGRESS otherwise
-    }
-  },
-  setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
-    for (const checkJob of draft.jobs) {
-      if (checkJob.name === job.name) {
-        checkJob.status = status;
-      }
+      draft.status = PIPELINE_STATUS.IN_PROGRESS; // Set to IN_PROGRESS otherwise
     }
   })),
   setJobResult: (job, result) => set((state) => produce(state, (draft) => {
@@ -338,6 +338,7 @@ const createPipelineStore = (set) => ({
         }
       }
     }));
+
     return invalidatedJobs;
   },
   validatePipeline: () => set((state) => produce(state, (draft) => {

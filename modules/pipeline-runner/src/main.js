@@ -16,7 +16,7 @@ const { select } = require('@inquirer/prompts');
 const pipelineHelpers = require('./pipeline-helpers');
 const { run: runVisualizer } = require('./server');
 
-const { JOB_STATUS, JOB_RESULT, PIPELINE_STATUS } = pipelineStore;
+const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
 const logger = getLogger();
 
@@ -219,17 +219,15 @@ async function runJob (executor, job) {
   pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
   // when the job is done, check now if the pipeline has passed or failed
-  const pipelineStatus = pipelineStore.getState().getPipelineStatus();
+  const pipelineStatus = pipelineStore.getState().status;
 
   // TODO: add a fail strategy option that kills a group once just one has failed
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
-      pipelineStore.getState().setPipelineResult(JOB_RESULT.PASSED);
       logger.info(`\nPipeline is passing\n`.green);
     } else {
-      pipelineStore.getState().setPipelineResult(JOB_RESULT.FAILED);
       logger.error(`\nPipeline is failing\n`.red);
     }
     if (pipelineStore.getState().exitOnDone) {
@@ -401,7 +399,7 @@ async function run ({ file, opts = {} }) {
   if (!isWatchedProcess) {
     return await new Promise((resolve, reject) => {
       pipelineStore.subscribe((state) => {
-        const pipelineStatus = state.getPipelineStatus();
+        const pipelineStatus = state.status;
         if (pipelineStatus === PIPELINE_STATUS.PASSED) {
           Promise.all([executor?.stop(), closeAllLogStreams()]).then(() => {
             resolve();

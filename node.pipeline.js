@@ -44,7 +44,7 @@ job('unit-test', () => {
       //* make it so that it does not fail when artifacts fails but rather gives a stern message
   artifacts('/ci/coverage');
   env('DOCKER_VERSION', '');
-  // workdir('') // TODO: allow setting workdir here too
+  // workdir('') // TODO: 1... allow setting workdir here too
   copy('/ci'); // copies the files from the main container into this one
   group('tests');
   installNode();
