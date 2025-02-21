@@ -194,7 +194,6 @@ class DockerExecutor {
       for (const secretValue of secretValues) {
         filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat((secretValue || '').length));
       }
-      console.log('!!!!!writing chunk', filteredChunk.substr(0, 100));
       fsStream.write(filteredChunk);
       try {
         fs.fsyncSync(fsStream.fd);
@@ -204,7 +203,6 @@ class DockerExecutor {
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
         // pull out the artifacts, if there are any
-        console.log('!!!finished scripts');
         if (artifactsDirSrc) {
           try {
             console.log('!!!pulling artifacts now');
