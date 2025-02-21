@@ -3,8 +3,12 @@ const Docker = require('dockerode');
 const slash = require('slash');
 const _stream = require('stream');
 const fs = require('fs');
+const { getLogger } = require('../logger');
+const path = require('path');
 
 const env = process.env;
+
+const logger = getLogger();
 
 class DockerExecutor {
   constructor () {
@@ -201,9 +205,10 @@ class DockerExecutor {
         // pull out the artifacts, if there are any
         if (artifactsDirSrc) {
           try {
+            console.log('!!!pulling artifacts now');
             await this._pullArtifacts(artifactsDirSrc, artifactsDirDest);
           } catch (e) {
-            reject('failed to pull artifacts');
+            reject(e);
           }
         }
 
@@ -399,15 +404,16 @@ class DockerExecutor {
   }
 
   async _pullArtifacts (srcContainerDir, destHostedDir) {
-    // Step 1: Get the archive from the source container directory
+    // get the archive from the source container directory
     const container = this.testContainer.container;
+    await this._waitForContainerToUnpause(container);
     const archiveStream = await container.getArchive({ path: srcContainerDir });
 
-    // Step 2: Create a writable stream to the destination directory on the host
-    const archiveFilepath = `${destHostedDir}/archive.tar`;
+    // create a writable stream to the destination directory on the host
+    const archiveFilepath = path.join(destHostedDir, 'archive.tar');
     const destStream = fs.createWriteStream(archiveFilepath); // Create a tar file in the destination directory
 
-    // Step 3: Pipe the archive stream to the destination stream
+    // pipe the archive stream to the destination stream
     archiveStream.pipe(destStream);
 
     return new Promise((resolve, reject) => {
@@ -419,9 +425,15 @@ class DockerExecutor {
             await fs.promises.rm(archiveFilepath);
             resolve();
           })
-          .on('error', reject);
+          .on('error', (err) => {
+            logger.error(`Failed to pipe archive from ${archiveFilepath}. err=${err}`);
+            reject(err);
+          });
       });
-      destStream.on('error', reject);
+      destStream.on('error', function (err) {
+        logger.error(`Failed to pipe from container '${archiveStream}' to hosted '${destStream}'. err=${err}`);
+        reject(err);
+      });
     });
   }
 }
