@@ -50,7 +50,7 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
-  step('ls -lah /ci/coverage');
+  step('ls -lah /ci/');
   step('sleep 20');
 });
 

@@ -194,6 +194,7 @@ class DockerExecutor {
       for (const secretValue of secretValues) {
         filteredChunk = filteredChunk.replace(new RegExp(secretValue, 'g'), '*'.repeat((secretValue || '').length));
       }
+      console.log('!!!!!writing chunk', filteredChunk.substr(0, 100));
       fsStream.write(filteredChunk);
       try {
         fs.fsyncSync(fsStream.fd);
