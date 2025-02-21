@@ -203,8 +203,10 @@ class DockerExecutor {
     return new Promise((resolve, reject) => {
       stream.on('end', async () => {
         // pull out the artifacts, if there are any
+        console.log('!!!finished scripts');
         if (artifactsDirSrc) {
           try {
+            console.log('!!!pulling artifacts now');
             await this._pullArtifacts(artifactsDirSrc, artifactsDirDest);
           } catch (e) {
             reject(e);
