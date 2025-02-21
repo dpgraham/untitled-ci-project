@@ -4,6 +4,7 @@ const slash = require('slash');
 const _stream = require('stream');
 const fs = require('fs');
 const { getLogger } = require('../logger');
+const path = require('path');
 
 const env = process.env;
 
@@ -404,12 +405,11 @@ class DockerExecutor {
   async _pullArtifacts (srcContainerDir, destHostedDir) {
     // get the archive from the source container directory
     const container = this.testContainer.container;
-    await this._waitForContainerToUnpause(container); 
-    await new Promise((resolve) => setTimeout(resolve, 10 * 1000)); // TODO: temp wait 10s for directory to exist
+    await this._waitForContainerToUnpause(container);
     const archiveStream = await container.getArchive({ path: srcContainerDir });
 
     // create a writable stream to the destination directory on the host
-    const archiveFilepath = `${destHostedDir}/archive.tar`;
+    const archiveFilepath = path.join(destHostedDir, 'archive.tar');
     const destStream = fs.createWriteStream(archiveFilepath); // Create a tar file in the destination directory
 
     // pipe the archive stream to the destination stream

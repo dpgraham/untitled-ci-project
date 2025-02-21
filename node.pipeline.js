@@ -42,7 +42,7 @@ job('unit-test', () => {
   // TODO: 0
       //* investigate why artifacts failing in Github, reproduce using "act" local runner
       //* make it so that it does not fail when artifacts fails but rather gives a stern message
-  artifacts('/ci/coverage');
+  artifacts('/ci/');
   env('DOCKER_VERSION', '');
   // workdir('') // TODO: 1... allow setting workdir here too
   copy('/ci'); // copies the files from the main container into this one
