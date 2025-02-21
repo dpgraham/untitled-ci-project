@@ -42,7 +42,7 @@ job('unit-test', () => {
   // TODO: 0
       //* investigate why artifacts failing in Github, reproduce using "act" local runner
       //* make it so that it does not fail when artifacts fails but rather gives a stern message
-  artifacts('/');
+  artifacts('/ci');
   env('DOCKER_VERSION', '');
   // workdir('') // TODO: 1... allow setting workdir here too
   copy('/ci'); // copies the files from the main container into this one
@@ -50,7 +50,7 @@ job('unit-test', () => {
   installNode();
   step('cd /ci');
   step('npm run test');
-  step('ls -lah /ci/');
+  step('ls -lah /');
   step('sleep 20');
 });
 
