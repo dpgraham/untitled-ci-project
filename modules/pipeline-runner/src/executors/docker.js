@@ -405,7 +405,7 @@ class DockerExecutor {
     // get the archive from the source container directory
     const container = this.testContainer.container;
     await this._waitForContainerToUnpause(container); 
-    await new Promise((resolve) => setTimeout(resolve, 10 * 1000); // TODO: temp wait 10s for directory to exist
+    await new Promise((resolve) => setTimeout(resolve, 10 * 1000)); // TODO: temp wait 10s for directory to exist
     const archiveStream = await container.getArchive({ path: srcContainerDir });
 
     // create a writable stream to the destination directory on the host
