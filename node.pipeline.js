@@ -43,14 +43,14 @@ job('unit-test', () => {
   // TODO: 0
       //* investigate why artifacts failing in Github, reproduce using "act" local runner
       //* make it so that it does not fail when artifacts fails but rather gives a stern message
-  artifacts('./coverage');
+  artifacts('./coverage/');
   env('DOCKER_VERSION', '');
   copy('ci', '.'); // copies the files from the main container into this one
   group('tests');
   installNode();
   step('cd /ci');
   step('npm run test');
-  step('ls -lah /');
+  step('ls -lah /ci/coverage/');
   step('sleep 20');
 });
 
