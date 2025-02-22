@@ -184,6 +184,8 @@ async function runJob (executor, job) {
   }
 
   let exitCode;
+  let workDir = job.workDir || state.workDir;
+  let artifactsDirSrc = job.artifactsDir ? path.posix.join(workDir, job.artifactsDir) : null;
   try {
     const opts = {
       clone: !!job.group, // jobs that are part of a group are run in parallel and need to be cloned
@@ -192,7 +194,8 @@ async function runJob (executor, job) {
       name: job.name,
       image: job.image,
       copy: job.copy,
-      artifactsDirSrc: job.artifactsDir,
+      workDir: job.workDir || state.workDir,
+      artifactsDirSrc,
       artifactsDirDest: artifactsPathDest,
     };
     const runOutput = await executor.run(commands, logStream, opts);

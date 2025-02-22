@@ -117,7 +117,7 @@ apiNamespace.concurrency = (concurrency) => {
  * @param {string} workdir
  */
 apiNamespace.workdir = (workdir) => {
-  pipelineStore.getState().setWorkDir(workdir);
+  pipelineStore.getState().setWorkDir(workdir, currentJob);
 };
 
 /**
@@ -151,8 +151,8 @@ apiNamespace.group = (name) => {
  * This is only applicable if you set "group" or "image" in a job
  * @param {string} src
  */
-apiNamespace.copy = (src) => {
-  pipelineStore.getState().addCopy(src, currentJob);
+apiNamespace.copy = (src, dest) => {
+  pipelineStore.getState().addCopy(src, dest, currentJob);
 };
 
 /**

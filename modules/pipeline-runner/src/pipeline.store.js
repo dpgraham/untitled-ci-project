@@ -92,14 +92,16 @@ const createPipelineStore = (set) => ({
   })),
   addJob: (job) => {
     set((state) => produce(state, (draft) => {
+      job.workDir = job.workDir || '/ci';
       draft.jobs.push(job);
     }));
     return pipelineStore.getState().jobs[pipelineStore.getState().jobs.length - 1];
   },
-  addCopy: (src, currentJob) => set((state) => produce(state, (draft) => {
+  addCopy: (src, dest, currentJob) => set((state) => produce(state, (draft) => {
     for (const job of draft.jobs) {
       if (currentJob.name === job.name) {
-        job.copy = [...(job.copy || []), { src }];
+        let destPath = path.posix.join(job.workDir, dest);
+        job.copy = [...(job.copy || []), { src, dest: destPath }];
       }
     }
   })),
@@ -171,12 +173,19 @@ const createPipelineStore = (set) => ({
   })),
   setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
   setOutputDir: (outputDir) => set({ outputDir }),
-  setWorkDir: (workDir) => {
+  setWorkDir: (workDir, currentJob) => set((state) => produce(state, (draft) => {
     if (!workDir.startsWith('/')) {
       workDir = `/${workDir}`;
     }
-    set({ workDir });
-  },
+    if (!currentJob) {
+      draft.workDir = workDir;
+    }
+    for (const job of draft.jobs) {
+      if (job.name === currentJob.name) {
+        job.workDir = workDir;
+      }
+    }
+  })),
   setGroup: (group, currentJob) => set((state) => produce(state, (draft) => {
     if (!currentJob) {
       throw new Error(`Error: 'group' must be called inside a 'job'`);

@@ -1,10 +1,10 @@
 const { GenericContainer } = require('testcontainers');
 const Docker = require('dockerode');
 const slash = require('slash');
-const _stream = require('stream');
 const fs = require('fs');
 const { getLogger } = require('../logger');
 const path = require('path');
+const tar = require('tar-stream');
 
 const env = process.env;
 
@@ -56,8 +56,6 @@ class DockerExecutor {
     const createOutputCommand = `mkdir -p ${outputDir}`;
     const imageName = typeof image === 'string' ? image : image.name;
 
-    // TODO: 0 this started breaking at 5dcc5b82551d799bfef274b4fa003c24a30077f1
-    // what caused this to start happening?
     this.testContainer = await new GenericContainer(imageName)
       .withName(this._createValidContainerName(name) + randString)
       .withEnvironment({ CI_OUTPUT: `${outputDir}/outputs.log` })
@@ -112,15 +110,30 @@ class DockerExecutor {
     }
   }
 
-  async copyFilesBetweenContainers (sourceContainer, sourceFilePath, destContainer) {
-    // Step 1: Stream the file/folder from the source container
-    const archiveStream = await sourceContainer.container.getArchive({ path: sourceFilePath });
+  /**
+   * Copy files from one container to another
+   * @param {Dockerode.Container} sourceContainer
+   * @param {string} sourcePath
+   * @param {Dockerode.Container} destContainer
+   * @param {string} destPath
+   */
+  async copyFilesBetweenContainers (sourceContainer, sourcePath, destContainer, destPath) {
+    const archiveStream = await sourceContainer.getArchive({ path: sourcePath });
+    const extract = tar.extract();
+    const pack = tar.pack();
 
-    // Step 2: Send the tar archive to the destination container
-    const passthrough = new _stream.PassThrough();
-    archiveStream.pipe(passthrough);
+    extract.on('entry', (header, stream, next) => {
+      // TODO: 0... transform header to be relative path
+      stream.pipe(pack.entry(header, next));
+    });
 
-    await destContainer.container.putArchive(passthrough, { path: '/' });
+    extract.on('finish', () => {
+      pack.finalize();
+    });
+
+    archiveStream.pipe(extract);
+
+    await destContainer.putArchive(pack, { path: destPath });
   }
 
   async exec (container, ...args) {
@@ -143,14 +156,14 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env, secrets, name, image, copy = [], artifactsDirSrc, artifactsDirDest } = opts;
+    const { clone, env, secrets, name, image, copy = [], artifactsDirSrc, artifactsDirDest, workDir } = opts;
     this.runningJob = name;
     let subcontainer = null;
     if (clone || image) {
       if (!image) {
         this.imageName = await this._commitClonedImage();
       }
-      subcontainer = await this._cloneContainer({ name, image });
+      subcontainer = await this._cloneContainer({ name, image, workDir });
       if (subcontainer === null) {
         const err = new Error();
         err.isKilled = true;
@@ -158,8 +171,8 @@ class DockerExecutor {
       }
 
       for await (const copyFiles of copy) {
-        const { src } = copyFiles;
-        await this.copyFilesBetweenContainers(this.testContainer, src, subcontainer.testContainer);
+        const { src, dest = '.' } = copyFiles;
+        await this.copyFilesBetweenContainers(this.testContainer.container, src, subcontainer.testContainer.container, dest);
       }
     } else if (this.imageName) {
       const imageName = this.imageName;
@@ -205,7 +218,7 @@ class DockerExecutor {
         // pull out the artifacts, if there are any
         if (artifactsDirSrc) {
           try {
-            console.log('!!!pulling artifacts now');
+            // console.log('yip'); // TODO: 0 -- bug -- uncomment and then recomment while job in progress, causes crash due to no container
             await this._pullArtifacts(artifactsDirSrc, artifactsDirDest);
           } catch (e) {
             reject(e);
@@ -323,7 +336,6 @@ class DockerExecutor {
   }
 
   async _commitClonedImage () {
-    // TODO: 0... make image name a "dangleable" name
     if (this.imageName) {
       return this.imageName;
     }
@@ -339,11 +351,10 @@ class DockerExecutor {
     return await this.clonePromise;
   }
 
-  async _cloneContainer ({ name, image }) {
+  async _cloneContainer ({ name, image, workDir }) {
     const subcontainer = new Subcontainer();
 
     // create a new image that clones the main container
-    // TODO: 0 ... stop cloning the image every single time for one group
     const randString = Math.random().toString().substring(2, 10);
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);
@@ -358,6 +369,7 @@ class DockerExecutor {
     // start a new container from this newly created image
     const newContainer = await new GenericContainer(image || this.imageName)
       .withName(this._createValidContainerName(this.containerName + '_' + name + '_' + randString))
+      .withWorkingDir(workDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
       .start();
