@@ -450,6 +450,8 @@ class DockerExecutor {
     return new Promise((resolve, reject) => {
       destStream.on('finish', () => {
         // Extract the tar file to the destination directory
+        // TODO: 1 -- fix extraction to include files and not include the containing directory
+        //    -- e.g.) /coverage/lcov/ should be /lcov/ instead
         const extract = require('tar').extract({ cwd: destHostedDir });
         fs.createReadStream(archiveFilepath).pipe(extract)
           .on('finish', async () => {
