@@ -1,8 +1,11 @@
+let logger;
+
 function getLogger () {
+  if (logger) {return logger;}
   const { createLogger, format, transports } = require('winston');
 
-  const logger = createLogger({
-    level: 'info',
+  logger = createLogger({
+    level: process.env.DEBUG ? 'debug' : 'info',
     format: format.printf(({ message }) => message),
     transports: [
       new transports.Console(),
