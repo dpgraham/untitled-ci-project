@@ -123,7 +123,8 @@ class DockerExecutor {
     const pack = tar.pack();
 
     extract.on('entry', (header, stream, next) => {
-      // TODO: 0... transform header to be relative path
+      // TODO: 2... investigate this mystery some day why it doesn't work and gives 404!
+      // header.name = slash(path.relative(sourcePath, header.name));
       stream.pipe(pack.entry(header, next));
     });
 
@@ -134,6 +135,25 @@ class DockerExecutor {
     archiveStream.pipe(extract);
 
     await destContainer.putArchive(pack, { path: destPath });
+
+    // shameful hack... in destContainer, move the newly moved files
+    // up 'n' levels so that we don't include the whole qualified path
+    // (I resorted to this because header.name translation wasn't working, sorry)
+    const dirLevels = sourcePath.split('/').map(() => '..').join('/');
+    let mvExec = await this.exec(destContainer, {
+      Cmd: ['sh', '-c', `mv -f ${destPath}/${sourcePath}/.[!.]* ${destPath}/${sourcePath}/${dirLevels}/`],
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: false,
+    });
+    await mvExec.start({ hijack: true, stdin: false });
+    mvExec = await this.exec(destContainer, {
+      Cmd: ['sh', '-c', `mv -f ${destPath}/${sourcePath}/* ${destPath}/${sourcePath}/${dirLevels}/`],
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: false,
+    });
+    await mvExec.start({ hijack: true, stdin: false });
   }
 
   async exec (container, ...args) {
@@ -219,7 +239,7 @@ class DockerExecutor {
         if (artifactsDirSrc) {
           try {
             // console.log('yip'); // TODO: 0 -- bug -- uncomment and then recomment while job in progress, causes crash due to no container
-            await this._pullArtifacts(artifactsDirSrc, artifactsDirDest);
+            await this._pullArtifacts(dockerContainer, artifactsDirSrc, artifactsDirDest);
           } catch (e) {
             reject(e);
           }
@@ -415,11 +435,10 @@ class DockerExecutor {
     } while (isPaused || isRestarting);
   }
 
-  async _pullArtifacts (srcContainerDir, destHostedDir) {
+  async _pullArtifacts (dockerContainer, srcContainerDir, destHostedDir) {
     // get the archive from the source container directory
-    const container = this.testContainer.container;
-    await this._waitForContainerToUnpause(container);
-    const archiveStream = await container.getArchive({ path: srcContainerDir });
+    await this._waitForContainerToUnpause(dockerContainer);
+    const archiveStream = await dockerContainer.getArchive({ path: srcContainerDir });
 
     // create a writable stream to the destination directory on the host
     const archiveFilepath = path.join(destHostedDir, 'archive.tar');
