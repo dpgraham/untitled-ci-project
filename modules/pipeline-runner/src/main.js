@@ -291,6 +291,7 @@ async function runNextJobs (executor) {
   printJobInfo(nextJobs);
 
   const jobs = [];
+  logger.debug(`Running next ${nextJobs.length} jobs. nextJobs=${JSON.stringify(nextJobs)}`);
   for (const nextJob of nextJobs) {
     jobs.push(runJob(executor, nextJob));
   }
@@ -335,7 +336,10 @@ async function handleFileChange (executor, filePath, isDeletion = false) {
 
   // run queued jobs
   if (hasInvalidatedAJob) {
+    logger.debug(`Found invalidated jobs. Running next jobs (debouncing ${DEBOUNCE_MINIMUM}ms)`);
     await debouncedRunNextJobs(executor);
+  } else {
+    logger.debug(`Found no invalidated jobs after file changed. Not running next jobs.`);
   }
 }
 

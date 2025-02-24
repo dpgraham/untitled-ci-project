@@ -40,9 +40,6 @@ job('lint', () => {
 job('unit-test', () => {
   image('docker:dind');
   workdir('/unit');
-  // TODO: 0
-      //* investigate why artifacts failing in Github, reproduce using "act" local runner
-      //* make it so that it does not fail when artifacts fails but rather gives a stern message
   artifacts('./coverage');
   env('DOCKER_VERSION', '');
   copy('ci', '.'); // copies the files from the main container into this one
