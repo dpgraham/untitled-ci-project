@@ -521,7 +521,7 @@ class DockerExecutor {
     const archiveStream = await dockerContainer.getArchive({ path: srcContainerDir });
 
     // create a writable stream to the destination directory on the host
-    const archiveFilepath = path.join(destHostedDir, 'archive.tar');
+    const archiveFilepath = path.join(destHostedDir, 'artifacts.tar');
     const destStream = fs.createWriteStream(archiveFilepath); // Create a tar file in the destination directory
 
     // pipe the archive stream to the destination stream
@@ -529,19 +529,9 @@ class DockerExecutor {
 
     return new Promise((resolve, reject) => {
       destStream.on('finish', () => {
-        // Extract the tar file to the destination directory
-        // TODO: 1 -- fix extraction to include files and not include the containing directory
-        //    -- e.g.) /coverage/lcov/ should be /lcov/ instead
-        const extract = require('tar').extract({ cwd: destHostedDir });
-        fs.createReadStream(archiveFilepath).pipe(extract)
-          .on('finish', async () => {
-            await fs.promises.rm(archiveFilepath);
-            resolve();
-          })
-          .on('error', (err) => {
-            logger.error(`Failed to pipe archive from ${archiveFilepath}. err=${err}`);
-            reject(err);
-          });
+        destStream.end();
+        destStream.destroy();
+        resolve();
       });
       destStream.on('error', function (err) {
         logger.error(`Failed to pipe from container '${archiveStream}' to hosted '${destStream}'. err=${err}`);

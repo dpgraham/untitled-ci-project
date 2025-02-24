@@ -43,12 +43,13 @@
     }
   };
 
-  // TODO: 1 ... give user a link to the logfile download
+  // TODO: 1 -- show aborted in jobs page too, not just pipeline page
+  // TODO: 1 -- provide a link to download Artifacts, if there is artifacts and if job is done
 
   eventSource.onerror = (error) => {
     state.status = 'aborted';
     for (const job of state.jobs) {
-      if (job.status === 'running') {
+      if (['running', 'queued', 'pending'].includes(job.status)) {
         job.status = 'canceled';
       }
     }
@@ -134,7 +135,8 @@
     <h4>JOB NAME: {job.name}</h4>
     <h4>JOB ID: {job.id}</h4>
     <h4>STATUS: {job.status}</h4>
-    <a href={job.fullLogFilePath}>Download logfile</a>
+    <!-- TODO: 1 -- only show this when job is running or completed -->
+    <a href={`/logs/${job.name}/download`}>Download logfile</a>
     <div class="logs">
       {#if job.status !== 'pending' && job.status !== 'queued' }
         {#each jobLogs as jobLog}{jobLog}<br>{/each}

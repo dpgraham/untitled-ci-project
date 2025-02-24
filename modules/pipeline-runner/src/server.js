@@ -135,6 +135,24 @@ async function run () {
       streamLogFile();
     });
 
+    // endpoint to download logs for a job
+    app.get('/logs/:jobName/download', (req, res) => {
+      const jobName = req.params.jobName;
+      const { fullOutputDir } = pipelineStore.getState();
+      const jobLogsPath = path.join(fullOutputDir, 'jobs', jobName, 'logs.log');
+      const filename = `${jobName}.log`;
+      res.type('text/plain');
+      res.download(jobLogsPath, filename);
+    });
+
+    app.get('/artifacts/:jobName/download', (req, res) => {
+      const jobName = req.params.jobName;
+      const { fullOutputDir } = pipelineStore.getState();
+      const jobLogsPath = path.join(fullOutputDir, 'jobs', jobName, 'artifacts.tar');
+      const filename = `${jobName}.tar`;
+      res.download(jobLogsPath, filename);
+    });
+
     // Start the server
     const server = app.listen(port, () => {
       /* eslint-disable */

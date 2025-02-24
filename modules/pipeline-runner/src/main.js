@@ -157,14 +157,7 @@ async function runJob (executor, job) {
   pipelineStore.getState().setJobId(job);
 
   // empty out the artifacts directory
-  let artifactsPathDest;
-  if (job.artifactsDir) {
-    artifactsPathDest = path.join(outputDir, 'jobs', job.name, 'artifacts');
-    if (fs.existsSync(artifactsPathDest)) {
-      await fs.promises.rm(artifactsPathDest, { recursive: true, force: true });
-    }
-    await fs.promises.mkdir(artifactsPathDest, { recursive: true });
-  }
+  let artifactsPathDest = path.join(outputDir, 'jobs', job.name);
 
   let logStream = logStreams[logFilePath];
   if (!logStream?.writable) {

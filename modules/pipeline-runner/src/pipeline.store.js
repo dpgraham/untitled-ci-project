@@ -175,7 +175,7 @@ const createPipelineStore = (set) => ({
   setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
   setOutputDir: (outputDir) => set((state) => ({
     outputDir,
-    fullOutputDir: state.pipelineDir + '/' + outputDir, 
+    fullOutputDir: state.pipelineDir + '/' + outputDir,
   })),
   setWorkDir: (workDir, currentJob) => set((state) => produce(state, (draft) => {
     if (!workDir.startsWith('/')) {
