@@ -97,7 +97,6 @@ async function buildExecutor (pipelineFile) {
     let executor = new DockerExecutor();
 
     process.on('SIGINT', () => {
-      // TODO: 1 set state here to indicate that it was aborted
       logger.info('Terminating pipeline'.gray);
       executor.stop();
       if (require.main === module) { process.exit(1); }
@@ -372,6 +371,7 @@ async function run ({ file, opts = {} }) {
   const isProgrammatic = require.main !== module;
   pipelineStore.getState().setExitOnDone(!!(opts.ci || process.env.CI) || isProgrammatic);
 
+  pipelineStore.getState().setPipelineFile(pipelineFile);
   if (!pipelineStore.getState().exitOnDone) {
     await runVisualizer();
   }
@@ -449,6 +449,7 @@ async function run ({ file, opts = {} }) {
   });
 
   pipelineFileWatcher.on('change', async () => {
+    // TODO: 1 -- mark status as "restarting"
     promptPromise?.cancel();
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();

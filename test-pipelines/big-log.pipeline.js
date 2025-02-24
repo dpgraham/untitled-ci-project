@@ -9,11 +9,8 @@ job('log massive file', function () {
   for (let i=0; i<20; i++) {
     step(`cat ./big-file.log`);
   }
-  // TODO: bug ... when uncommenting this it causes big performance issues
-  // for (let j=0; j<5001;j++) {
-  //   step(`sleep 0.01`);
-  //   step(`echo ${j}`);
-  // }
-
-  // TODO: bug ... should echo \n at the end so that logger doesn't miss last line
+  for (let j=0; j<500;j++) {
+    step(`sleep 0.01`);
+    step(`echo ${j}`);
+  }
 });

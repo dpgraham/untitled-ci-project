@@ -231,13 +231,14 @@ class DockerExecutor {
     const { clone, env, secrets, name, image, copy = [], artifactsDirSrc, artifactsDirDest, workDir } = opts;
     this.runningJob = name;
 
-    // create the "Sucontainer" metadata object
+    // create the "Subcontainer" metadata object
     let subcontainer = new Subcontainer();
     const randString = Math.random().toString().substring(2, 10);
     subcontainer.setId(randString);
     this.subcontainers.set(randString, subcontainer);
 
     if (clone || image) {
+      // TODO: 1 -- make an indicator showing when an image is being created
       if (!image) {
         this.imageName = await this._commitClonedImage();
       }

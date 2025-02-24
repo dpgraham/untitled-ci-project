@@ -44,10 +44,14 @@
   };
 
   // TODO: 1 ... give user a link to the logfile download
-  // TODO: 1 ... when event source ends, update messaging to indicate it's done
-  // TODO: 1 ... if a job is not running, do not render any logs
 
   eventSource.onerror = (error) => {
+    state.status = 'aborted';
+    for (const job of state.jobs) {
+      if (job.status === 'running') {
+        job.status = 'canceled';
+      }
+    }
     eventSource.close(); // Close the connection on error
   };
 
@@ -108,7 +112,7 @@
   <title>{jobName || state.pipelineFileBasename} -- Carry-On</title>
 </svelte:head>
 <main>
-  <!-- TODO: if no "state" then show a loading indicator here -->
+  {#if !state}Loading...{/if}
   {#if state}
   {#if !job && state && state.jobs}
     <h4>PIPELINE: {state.pipelineFile}</h4>
@@ -130,8 +134,11 @@
     <h4>JOB NAME: {job.name}</h4>
     <h4>JOB ID: {job.id}</h4>
     <h4>STATUS: {job.status}</h4>
+    <a href={job.fullLogFilePath}>Download logfile</a>
     <div class="logs">
-      {#each jobLogs as jobLog}{jobLog}<br>{/each}
+      {#if job.status !== 'pending' && job.status !== 'queued' }
+        {#each jobLogs as jobLog}{jobLog}<br>{/each}
+      {/if}
     </div>
   {/if}
   {/if}
