@@ -78,12 +78,12 @@ class DockerExecutor {
     }
     logger.debug(`Copied files to container. testContainer=${this.testContainer.getId()}`);
     if (this.imageName) {
-      logger.debug(`Cleaning up cloned image. imageName=${this.imageName}`);
-      await this.stopSubContainers();
-      await this.docker.getImage(this.imageName).remove({ force: true });
+      const imageName = this.imageName;
       delete this.imageName;
       delete this.clonePromise;
-      logger.debug(`Committing new cloned image. imageName=${this.imageName}`);
+      logger.debug(`Cleaning up cloned image. imageName=${imageName}`);
+      await this.stopSubContainers(imageName);
+      logger.debug(`Committing new cloned image. Done deleting imageName=${imageName}`);
       this.imageName = await this._commitClonedImage();
       logger.debug(`New cloned image. imageName=${this.imageName}`);
     }
@@ -110,24 +110,44 @@ class DockerExecutor {
 
     // clone the main image again
     if (this.imageName) {
-      logger.debug(`Cloning new image. testContainer=${this.testContainer.getId()}`);
-      await this.stopSubContainers();
-      await this.docker.getImage(this.imageName).remove({ force: true });
+      const imageName = this.imageName;
       delete this.imageName;
       delete this.clonePromise;
+      logger.debug(`Cleaning up cloned image. imageName=${imageName}`);
+      await this.stopSubContainers(imageName);
+      logger.debug(`Committing new cloned image. Done deleting imageName=${imageName}`);
       this.imageName = await this._commitClonedImage();
-      logger.debug(`Done cloning new image. testContainer=${this.testContainer.getId()}`);
+      logger.debug(`New cloned image. imageName=${this.imageName}`);
     }
   }
 
-  // TODO: 0 --- this needs to be atomic, this should finish running before it
-  // can be run again (is this a case for a mutex?)
-  async stopSubContainers () {
+  /**
+   * Stop all subcontainers and then delete the image that was used
+   * to create any subcontainer clones
+   */
+  async stopSubContainers (clonedImageName) {
     let promises = [];
-    for await (const subcontainer of this.subcontainers) {
+    for (const [, subcontainer] of this.subcontainers) {
       promises.push(this._destroyContainer(subcontainer));
     }
     await Promise.all(promises);
+    if (clonedImageName) {
+      logger.debug(`Deleting cloned image. imageName=${clonedImageName}`);
+      const containers = await this.docker.listContainers({ all: true });
+      const isImageInUse = containers.some((container) => container.Image === clonedImageName);
+      if (isImageInUse) {
+        logger.debug(`Not deleting image because it is already in use. imageName=${clonedImageName}`);
+        return;
+      }
+      const images = await this.docker.listImages();
+      const imageExists = images.some((image) => image.RepoTags && image.RepoTags.includes(clonedImageName));
+      if (!imageExists) {
+        logger.debug(`Image is already deleted. imageName=${clonedImageName}`);
+        return;
+      }
+
+      await this.docker.getImage(clonedImageName).remove({ force: true });
+    }
   }
 
   /**
@@ -296,7 +316,7 @@ class DockerExecutor {
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
         let out = null;
-        outputStream.on('data', async (chunk) => {
+        outputStream.on('data', (chunk) => {
           // remove first 8 bytes
           // (for reference https://github.com/moby/moby/issues/7375#issuecomment-51462963)
           out = chunk.toString(); // Log the CI_OUTPUT to the console
@@ -307,16 +327,16 @@ class DockerExecutor {
           // seeing output
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);
-            await this._destroyContainer(subcontainer);
+            this._destroyContainer(subcontainer);
             logger.debug(`Done cleaning up container. containerId=${subcontainer.id}`);
           }
           resolve({ exitCode, output: out });
         });
-        outputStream.on('error', async (err) => {
+        outputStream.on('error', (err) => {
           logger.debug(`Final step of job failed, reading output. jobName=${name}`);
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.testContainer.getId()}`);
-            await this._destroyContainer(subcontainer);
+            this._destroyContainer(subcontainer);
             logger.debug(`Done cleaning up container. containerId=${subcontainer.testContainer.getId()}`);
           }
           reject(new Error(`failed to write output to $CI_OUTPUT err=${err}`));
@@ -334,17 +354,9 @@ class DockerExecutor {
     if (this.runningJob === name || !name) {
       await Promise.all([
         this._stopMainExec(),
-        this._stopClonedContainers(),
+        this.stopSubContainers(this.imageName),
       ]);
       return;
-    }
-
-    // if it's a subcontainer job, stop that
-    for (const subcontainer of this.subcontainers) {
-      if (subcontainer.name === name) {
-        await this._destroyContainer(subcontainer);
-        return null;
-      }
     }
   }
 
@@ -377,15 +389,8 @@ class DockerExecutor {
   async stop () {
     return await Promise.all([
       this.testContainer?.stop(),
-      this._stopClonedContainers(),
-      this.imageName && this.docker.getImage(this.imageName).remove({ force: true }),
+      this.stopSubContainers(this.imageName),
     ]);
-  }
-
-  async _stopClonedContainers () {
-    for await (const [, subcontainer] of this.subcontainers || []) {
-      await this._destroyContainer(subcontainer);
-    }
   }
 
   _createValidContainerName (name) {
@@ -451,9 +456,9 @@ class DockerExecutor {
   async _destroyContainer (subcontainer) {
     // Remove the entry from subcontainers
     const testContainer = subcontainer.testContainer;
-    if (testContainer.isKilled) {
+    if (!testContainer || testContainer.isKilled) {
       logger.debug(`Skipping destroying container that was already destroyed.`);
-      // TODO: 0 -- shouldn't this be returned?
+      return;
     }
     const containerId = subcontainer.testContainer?.getId();
     logger.debug(`Destroying container. containerId=${containerId}`);
