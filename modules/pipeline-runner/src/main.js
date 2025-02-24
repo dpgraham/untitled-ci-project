@@ -291,7 +291,8 @@ async function runNextJobs (executor) {
   printJobInfo(nextJobs);
 
   const jobs = [];
-  logger.debug(`Running next ${nextJobs.length} jobs. nextJobs=${JSON.stringify(nextJobs)}`);
+  const nextJobNames = nextJobs.map(({name}) => name);
+  logger.debug(`Running next ${nextJobs.length} jobs. nextJobs=${JSON.stringify(nextJobNames)}`);
   for (const nextJob of nextJobs) {
     jobs.push(runJob(executor, nextJob));
   }

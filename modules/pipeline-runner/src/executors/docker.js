@@ -120,6 +120,8 @@ class DockerExecutor {
     }
   }
 
+  // TODO: 0 --- this needs to be atomic, this should finish running before it
+  // can be run again (is this a case for a mutex?)
   async stopSubContainers () {
     let promises = [];
     for await (const subcontainer of this.subcontainers) {
@@ -294,25 +296,28 @@ class DockerExecutor {
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
         let out = null;
-        outputStream.on('data', (chunk) => {
+        outputStream.on('data', async (chunk) => {
           // remove first 8 bytes
           // (for reference https://github.com/moby/moby/issues/7375#issuecomment-51462963)
           out = chunk.toString(); // Log the CI_OUTPUT to the console
           out = out.substr(8).trim();
           logger.debug(`Final step of job done, reading output. jobName=${name}`);
+          // TODO: 1 --- consider making this "fire-and-forget" if it's in CI mode,
+          // that way we don't need to wait for containers to be destroyed before
+          // seeing output
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);
-            this._destroyContainer(subcontainer);
+            await this._destroyContainer(subcontainer);
             logger.debug(`Done cleaning up container. containerId=${subcontainer.id}`);
           }
           resolve({ exitCode, output: out });
         });
-        outputStream.on('error', (err) => {
+        outputStream.on('error', async (err) => {
           logger.debug(`Final step of job failed, reading output. jobName=${name}`);
           if (subcontainer) {
-            logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);
-            this._destroyContainer(subcontainer);
-            logger.debug(`Done cleaning up container. containerId=${subcontainer.id}`);
+            logger.debug(`Cleaning up container. containerId=${subcontainer.testContainer.getId()}`);
+            await this._destroyContainer(subcontainer);
+            logger.debug(`Done cleaning up container. containerId=${subcontainer.testContainer.getId()}`);
           }
           reject(new Error(`failed to write output to $CI_OUTPUT err=${err}`));
         });
@@ -448,13 +453,17 @@ class DockerExecutor {
     const testContainer = subcontainer.testContainer;
     if (testContainer.isKilled) {
       logger.debug(`Skipping destroying container that was already destroyed.`);
+      // TODO: 0 -- shouldn't this be returned?
     }
     const containerId = subcontainer.testContainer?.getId();
-    // TODO: 1 -- test if it's quicker to stop the container before removing
     logger.debug(`Destroying container. containerId=${containerId}`);
     this.subcontainers.delete(subcontainer.id);
     try {
-      return await subcontainer?.testContainer?.container?.remove({ force: true });
+      const container = await subcontainer?.testContainer?.container;
+      if (container) {
+        await container.stop();
+        return await subcontainer?.testContainer?.container?.remove({ force: true });
+      }
     } catch (e) {
       logger.error(`Failed to destroy error. err=${e}`);
     }

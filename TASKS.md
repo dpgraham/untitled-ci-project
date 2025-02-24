@@ -7,4 +7,4 @@ TODO: make this project runnable in Gitpod
 
 # BUGS
 
-TODO: 0... sometimes jobs get stuck in "running" state despite being finished. no repro steps found yet (possibly fixed by )
+TODO: 0... sometimes jobs get stuck in "running" state despite being finished. no repro steps found yet (possibly fixed by 46794d9f45465ebd4852fa2acba41c545cb26feb)
