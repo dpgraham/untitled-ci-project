@@ -234,28 +234,36 @@ async function runJob (executor, job) {
     }
 
     // prompt user to select their next action
-    promptPromise?.cancel();
-    promptPromise = select({
-      message: 'Select next action',
-      choices: [
-        { name: 'quit', value: 'quit', description: 'Exit pipeline' },
-        // { name: 're-run', value: 'rerun', description: 'Re-run pipeline from beginning' },
-      ],
-    });
-    try {
-      const selection = await promptPromise;
-      if (selection === 'quit') {
-        logger.info('Stopping executor and exiting pipeline...'.gray);
-        await Promise.all([executor?.stop(), closeAllLogStreams()]);
-        if (require.main === module) { process.exit(0); }
-      }
-    } catch (e) {
-      // prompt was cancelled if we reach here. do nothing.
-    }
+    await promptUserForNextAction(executor);
     return;
   }
 
   await runNextJobs(executor);
+}
+
+/**
+ * When a pipeline is completed (in interactive mode), ask the user
+ * what they want to do next
+ */
+async function promptUserForNextAction(executor) {
+  promptPromise?.cancel();
+  promptPromise = select({
+    message: 'Select next action',
+    choices: [
+      { name: 'quit', value: 'quit', description: 'Exit pipeline' },
+      // { name: 're-run', value: 'rerun', description: 'Re-run pipeline from beginning' },
+    ],
+  });
+  try {
+    const selection = await promptPromise;
+    if (selection === 'quit') {
+      logger.info('Stopping executor and exiting pipeline...'.gray);
+      await Promise.all([executor?.stop(), closeAllLogStreams()]);
+      if (require.main === module) { process.exit(0); }
+    }
+  } catch (e) {
+    // prompt was cancelled if we reach here. do nothing so that user can exit
+  }
 }
 
 /**

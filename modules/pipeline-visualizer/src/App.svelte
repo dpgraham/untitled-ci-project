@@ -45,6 +45,7 @@
 
   // TODO: 1 -- show aborted in jobs page too, not just pipeline page
   // TODO: 1 -- provide a link to download Artifacts, if there is artifacts and if job is done
+  // TODO: 1 -- do not show as "aborted" if the pipeline is done
 
   eventSource.onerror = (error) => {
     state.status = 'aborted';
