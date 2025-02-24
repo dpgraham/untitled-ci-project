@@ -45,6 +45,7 @@
 
   // TODO: 1 ... give user a link to the logfile download
   // TODO: 1 ... when event source ends, update messaging to indicate it's done
+  // TODO: 1 ... if a job is not running, do not render any logs
 
   eventSource.onerror = (error) => {
     eventSource.close(); // Close the connection on error

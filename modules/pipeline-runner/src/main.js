@@ -452,8 +452,10 @@ async function run ({ file, opts = {} }) {
     promptPromise?.cancel();
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();
-    await executor.stopExec();
-    const err = await buildPipeline(pipelineFile);
+    const [err,] = await Promise.all([
+      buildPipeline(pipelineFile),
+      executor.stopExec(),
+    ]);
     if (err) {
       return;
     }
@@ -461,7 +463,7 @@ async function run ({ file, opts = {} }) {
   });
 
   pipelineFileWatcher.on('unlink', () => {
-    logger.info(`You deleted the pipeline file '${path.basename(pipelineFile)}'. Exiting.`.gray);
+    logger.info(`Pipeline file deleted '${path.basename(pipelineFile)}'. Exiting.`.gray);
     if (require.main === module) {process.exit(1);}
   });
 }

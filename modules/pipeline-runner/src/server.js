@@ -46,8 +46,6 @@ async function run () {
       pipelineStore.handleStateChange(onStateChange);
       sendEvent({ message: 'state', state: pipelineStore.getState()});
 
-      // TODO: 1 send a message to the UI page when it's dead or set the status to "aborted"
-
       // ping the client to keep this alive
       const intervalId = setInterval(() => {
         sendEvent({ message: 'ping', timestamp: new Date() });
