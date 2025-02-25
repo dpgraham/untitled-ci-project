@@ -3,8 +3,10 @@
   import Card, { Content } from '@smui/card';
   import './global.scss';
   import { rateLimitedFunction } from './utils';
+  import LinearProgress from '@smui/linear-progress';
 
   let state = $state({})
+  let groups = $state([]);
   let jobLogs = $state([])
   let job = $state(null)
   let id;
@@ -25,6 +27,7 @@
     const obj = JSON.parse(event.data);
     if (obj.message === 'state') {
       state = { ...obj.state };
+      groups = groupJobs(state);
       if (jobName) {
         for (let checkJob of state?.jobs || []) {
           if (checkJob.name === jobName) {
@@ -43,18 +46,36 @@
     }
   };
 
-  // TODO: 1 -- show aborted in jobs page too, not just pipeline page
-  // TODO: 1 -- provide a link to download Artifacts, if there is artifacts and if job is done
-  // TODO: 1 -- do not show as "aborted" if the pipeline is done
+  /**
+   * group together jobs by there group name
+   * @param state
+   */
+  function groupJobs (state) {
+    let groups = [];
+    let currGroup;
+    for (const job of state.jobs) {
+      if (!currGroup || (job.group !== currGroup.group) || !job.group) {
+        currGroup = { group: job.group, jobs: [] };
+        groups.push(currGroup);
+      }
+      currGroup.jobs.push(job);
+    }
+    return groups;
+  }
 
   eventSource.onerror = (error) => {
-    state.status = 'aborted';
+    if (!['passed', 'failed'].includes(state.status)) {
+      state.status = 'aborted';
+    }
+    if (!['passed', 'failed'].includes(job.status)) {
+      job.status = 'aborted';
+    }
     for (const job of state.jobs) {
       if (['running', 'queued', 'pending'].includes(job.status)) {
         job.status = 'canceled';
       }
     }
-    eventSource.close(); // Close the connection on error
+    eventSource.close();
   };
 
   // limit speed of log rendering
@@ -95,6 +116,7 @@
       let interval = setInterval(() => {
         if (window.MOCK_STATE) {
           state = window.MOCK_STATE;
+          groups = groupJobs(state);
           clearInterval(interval);
         }
       }, 1000);
@@ -114,42 +136,63 @@
   <title>{jobName || state.pipelineFileBasename} -- Carry-On</title>
 </svelte:head>
 <main>
-  {#if !state}Loading...{/if}
+  {#if Object.keys(state).length === 0}
+    <LinearProgress indeterminate />
+  {/if}
   {#if state}
   {#if !job && state && state.jobs}
-    <h4>PIPELINE: {state.pipelineFile}</h4>
+    <h1>{state.pipelineFileBasename}</h1>
     <h4>STATUS: {state.status}</h4>
-    {#each state.jobs as job}
-      {#if job.result !== 'skipped' }
-      <div class="job-card">
-        <a class="job-card-{job.status}" href="/?job={job.name}">
-          <Card class="job-card-{job.status}">
-            <h3>Job Name: {job.name}</h3>
-            <Content>{job.status}</Content>
-          </Card>
-        </a>
-      </div>
+    <hr />
+    {#each groups as group}
+      {#if group.group }
+        <hr />
+        <h4>{group.group}</h4>
       {/if}
+      {#each group.jobs as job}
+        {#if job.result !== 'skipped' }
+        <div class="job-card">
+          <a class="job-card-{job.status}" href="/?job={job.name}">
+            <Card class="job-card-{job.status}">
+              <h3>{job.name}</h3>
+              <Content>{job.status}</Content>
+            </Card>
+          </a>
+        </div>
+        {/if}
+      {/each}
+      {#if group.group }<hr />{/if}
     {/each}
+  {/if}
   {/if}
   {#if job }
     <h4>JOB NAME: {job.name}</h4>
     <h4>JOB ID: {job.id}</h4>
     <h4>STATUS: {job.status}</h4>
-    <!-- TODO: 1 -- only show this when job is running or completed -->
-    <a href={`/logs/${job.name}/download`}>Download logfile</a>
+    {#if ['passed', 'failed', 'running'].includes(job.status)}
+      <a href={`/logs/${job.name}/download`}>Download logfile</a>
+    {/if}
+    {#if ['passed', 'failed'].includes(job.status) && job.artifactsDir}
+      <a href={`/artifacts/${job.name}/download`}>Download artifacts</a>
+    {/if}
     <div class="logs">
       {#if job.status !== 'pending' && job.status !== 'queued' }
         {#each jobLogs as jobLog}{jobLog}<br>{/each}
       {/if}
     </div>
   {/if}
-  {/if}
 </main>
 
 <style>
+  :global(#app) {
+    background-color: #a0d9ef;
+    min-height: 100vh;
+  }
   :global(body) {
     place-items: start;
+  }
+  h1 {
+    font-size: 32px;
   }
   main {
     text-align: left;
@@ -169,9 +212,16 @@
     background-color: blue;
   }
   .job-card {
+    padding: 0;
     margin-bottom: 2em;
+    margin-right: 1em;
     text-align: left;
     cursor: pointer;
+    min-width: 15em;
+    * {
+      padding: 0;
+    }
+
     a {
       color: #000;
     }

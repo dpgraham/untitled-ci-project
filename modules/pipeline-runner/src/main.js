@@ -245,7 +245,7 @@ async function runJob (executor, job) {
  * When a pipeline is completed (in interactive mode), ask the user
  * what they want to do next
  */
-async function promptUserForNextAction(executor) {
+async function promptUserForNextAction (executor) {
   promptPromise?.cancel();
   promptPromise = select({
     message: 'Select next action',

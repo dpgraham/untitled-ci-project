@@ -173,10 +173,10 @@ const createPipelineStore = (set) => ({
     jobs: [],
   })),
   setMaxConcurrency: (maxConcurrency) => set({ maxConcurrency }),
-  setOutputDir: (outputDir) => set((state) => ({
+  setOutputDir: (outputDir) => set({
     outputDir,
-    fullOutputDir: state.pipelineDir + '/' + outputDir,
-  })),
+    fullOutputDir: process.cwd() + '/' + outputDir,
+  }),
   setWorkDir: (workDir, currentJob) => set((state) => produce(state, (draft) => {
     if (!workDir.startsWith('/')) {
       workDir = `/${workDir}`;
@@ -230,11 +230,12 @@ const createPipelineStore = (set) => ({
   setStatus: (status) => set({ status }),
   setResult: (result) => set({ result }),
   pipelineFile: null,
-  setPipelineFile: (filePath) => set({
+  setPipelineFile: (filePath) => set((state) => ({
     pipelineFile: filePath,
     pipelineDir: path.dirname(filePath),
     pipelineFileBasename: path.basename(filePath),
-  }),
+    fullOutputDir: process.cwd() + '/' + state.outputDir
+  })),
   setJobStatus: (job, status) => set((state) => produce(state, (draft) => {
     let jobs = draft.jobs;
     for (const checkJob of jobs) {
