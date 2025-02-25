@@ -89,6 +89,18 @@ apiNamespace.step = (command) => {
 };
 
 /**
+ * Permanently stop the container execution without closing the container so that
+ * a user can inspect the contents of a container
+ */
+apiNamespace.step.break = () => {
+  const message = `'${currentJob.name}' breakpoint reached.
+    To shell into this container, run: "docker exec -it $CONTAINER_ID sh"
+  `;
+  const command = `echo '${message}'; tail -f /dev/null`;
+  pipelineStore.getState().addStep({ command }, currentJob);
+};
+
+/**
  * The directory in the host machine where job output should be saved to
  *
  * Default is "ci-output/"

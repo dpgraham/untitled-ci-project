@@ -271,6 +271,9 @@ class DockerExecutor {
       subcontainer.testContainer.container :
       this.docker.getContainer(this.testContainer.getId());
 
+    commands = commands.map((command) => {
+      return command.replaceAll(/\$CONTAINER_ID/g, dockerContainer.id);
+    });
     const execCommand = ['sh', '-c', commands.join('; ')];
 
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);

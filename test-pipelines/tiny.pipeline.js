@@ -19,8 +19,8 @@ job('log A', function () {
   secret('SECRET', 'YOU SHUOLD NOT SEE THIS!!!!');
   step('cat a.log');
   step('echo "\n$HELLO"');
-  // step.break(); // TODO: 1 add something that stops the pipeline here so user can look at stuff
-  // retries(3); // TODO: add a feature to retry it if job is flakey
+  step.break();
+  // retries(3); // TODO: 1 --  add a feature to retry it if job is flakey
   step('echo "\n$SECRET"');
   step('echo "Smash Mouth" >> "$CI_OUTPUT"');
 });
