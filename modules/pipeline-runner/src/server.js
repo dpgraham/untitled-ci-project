@@ -8,11 +8,6 @@ const { promises: fsPromises } = fs;
 
 const app = express();
 
-/** TODO: bugs
- * - some of the logs still can't be read
- * - invalidating a pipeline (by saving .pipeline.js) causes logs to empty and nothing shows up
- */
-
 async function run () {
   const port = await portfinder.getPortPromise();
 
@@ -22,7 +17,6 @@ async function run () {
     });
 
     // Serve static files from a directory
-    // TODO: have a dev mode where it proxies the dev server
     const staticAssets = path.join(__dirname, '..', 'dist');
     app.use(express.static(staticAssets));
 

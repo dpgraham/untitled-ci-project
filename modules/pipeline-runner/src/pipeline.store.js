@@ -100,7 +100,7 @@ const createPipelineStore = (set) => ({
   addCopy: (src, dest, currentJob) => set((state) => produce(state, (draft) => {
     for (const job of draft.jobs) {
       if (currentJob.name === job.name) {
-        let destPath = path.posix.join(job.workDir, dest);
+        let destPath = path.posix.join(job.workDir || '/', dest || './');
         job.copy = [...(job.copy || []), { src, dest: destPath }];
       }
     }
@@ -310,6 +310,20 @@ const createPipelineStore = (set) => ({
         checkJob.skip = true;
         checkJob.status = JOB_STATUS.PASSED;
         checkJob.result = JOB_RESULT.SKIPPED;
+      }
+    }
+  })),
+  setTagName: (tagName, job) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob.tagName = tagName;
+      }
+    }
+  })),
+  setJobAttribute: (job, attrName, attrValue) => set((state) => produce(state, (draft) => {
+    for (const checkJob of draft.jobs) {
+      if (checkJob.name === job.name) {
+        checkJob[attrName] = attrValue;
       }
     }
   })),

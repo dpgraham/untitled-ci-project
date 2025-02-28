@@ -182,6 +182,30 @@ apiNamespace.skip = () => {
   pipelineStore.getState().setSkip(currentJob);
 };
 
+/**
+ * Commit and tag the container when done
+ * @param {string} tagName
+ */
+apiNamespace.tag = (tagName) => {
+  pipelineStore.getState().setTagName(tagName, currentJob);
+};
+
+/**
+ * Set the Docker command (Cmd)
+ * @param {string} command 
+ */
+apiNamespace.command = (command) => {
+  pipelineStore.getState().setJobAttribute(currentJob, 'command', command);
+};
+
+/**
+ * Set the Docker entrypoint (Entrypoint)
+ * @param {string} entrypoint 
+ */
+apiNamespace.entrypoint = (entrypoint) => {
+  pipelineStore.getState().setJobAttribute(currentJob, 'entrypoint', entrypoint);
+};
+
 // apiNamespace.service = () => {
 //   pipelineStore.getState().setIsServer(currentJob);
 // };

@@ -5,8 +5,11 @@ const fs = require('fs');
 const { getLogger } = require('../logger');
 const path = require('path');
 const tar = require('tar-stream');
+const { parse } = require('shell-quote');
 
 const env = process.env;
+
+const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
 
 const logger = getLogger();
 
@@ -52,7 +55,6 @@ class DockerExecutor {
       randString = '_' + Math.random().toString().substring(2, 15);
     }
 
-    const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
     const createOutputCommand = `mkdir -p ${outputDir}`;
     const imageName = typeof image === 'string' ? image : image.name;
 
@@ -228,7 +230,12 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    const { clone, env, secrets, name, image, copy = [], artifactsDirSrc, artifactsDirDest, workDir } = opts;
+    // TODO: 0 -- look into if "commands" need to be translated to proper unix args
+    const { 
+      clone, env, secrets, name, image, copy = [],
+      artifactsDirSrc, artifactsDirDest, workDir,
+      tagName, command, entrypoint,
+    } = opts;
     this.runningJob = name;
 
     // create the "Subcontainer" metadata object
@@ -249,7 +256,7 @@ class DockerExecutor {
         throw err;
       }
 
-      subcontainer = await this._cloneContainer({ name, image, workDir, subcontainer });
+      subcontainer = await this._cloneContainer({ name, image, workDir, subcontainer, command, entrypoint });
       if (subcontainer === null) {
         const err = new Error();
         err.isKilled = true;
@@ -345,12 +352,17 @@ class DockerExecutor {
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
         let out = null;
-        outputStream.on('data', (chunk) => {
+        outputStream.on('data', async (chunk) => {
           // remove first 8 bytes
           // (for reference https://github.com/moby/moby/issues/7375#issuecomment-51462963)
           out = chunk.toString(); // Log the CI_OUTPUT to the console
           out = out.substr(8).trim();
           logger.debug(`Final step of job done, reading output. jobName=${name}`);
+          if (tagName) {
+            const [repo, tag] = tagName.split(':');
+            // TODO: 0 -- bug -- the committed image disappears after a few seconds after closing
+            await dockerContainer.commit({ repo, tag });
+          }
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);
             this._destroyContainer(subcontainer);
@@ -441,7 +453,7 @@ class DockerExecutor {
     return await this.clonePromise;
   }
 
-  async _cloneContainer ({ name, image, workDir, subcontainer }) {
+  async _cloneContainer ({ name, image, workDir, subcontainer, command }) {
     logger.debug(`Cloning a container. name=${name} image=${image}`);
 
     if (!image) {
@@ -453,12 +465,19 @@ class DockerExecutor {
 
     // start a new container from this newly created image
     const id = subcontainer.id;
+    const createOutputCommand = `mkdir -p ${outputDir}`;
     const containerName = this._createValidContainerName(this.containerName + '_' + name + '_' + id);
+    const cmd = command ? parse(command) : null;
     const newContainer = await new GenericContainer(image || this.imageName)
       .withName(containerName)
       .withWorkingDir(workDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
+      .withCommand(
+        cmd ||
+        ['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
+      )
+      //.withEntrypoint(entrypoint) // TODO: 0 -- uncomment + test this guy
       .start();
 
     logger.debug(`Container is ready. jobName=${name} name=${containerName} id=${newContainer.getId()}`);

@@ -183,10 +183,13 @@ async function runJob (executor, job) {
       clone: !!job.group, // jobs that are part of a group are run in parallel and need to be cloned
       env: state.getEnv(job),
       secrets: state.getSecrets(job),
+      tagName: job.tagName,
       name: job.name,
       image: job.image,
       copy: job.copy,
       workDir: job.workDir || state.workDir,
+      command: job.command,
+      entrypoint: job.entrypoint,
       artifactsDirSrc,
       artifactsDirDest: artifactsPathDest,
     };
@@ -216,7 +219,7 @@ async function runJob (executor, job) {
   // when the job is done, check now if the pipeline has passed or failed
   const pipelineStatus = pipelineStore.getState().status;
 
-  // TODO: add a fail strategy option that kills a group once just one has failed
+  // TODO: 1 -- add a fail strategy option that kills a group once just one has failed
 
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
