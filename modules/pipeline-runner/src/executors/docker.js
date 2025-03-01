@@ -498,7 +498,7 @@ class DockerExecutor {
       .withEnvironment({ TESTCONTAINERS_RYUK_DISABLED: 'true' }) // Disable RYUK to prevent image cleanup
       .withCommand(
         cmd ||
-        ['bash', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
+        ['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
       )
       .withEntrypoint(entrypoint) // TODO: 0 -- uncomment + test this guy
       .start();
