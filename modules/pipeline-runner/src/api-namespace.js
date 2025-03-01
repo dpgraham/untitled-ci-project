@@ -192,7 +192,7 @@ apiNamespace.tag = (tagName) => {
 
 /**
  * Set the Docker command (Cmd)
- * @param {string} command 
+ * @param {string} command
  */
 apiNamespace.command = (command) => {
   pipelineStore.getState().setJobAttribute(currentJob, 'command', command);
@@ -200,10 +200,20 @@ apiNamespace.command = (command) => {
 
 /**
  * Set the Docker entrypoint (Entrypoint)
- * @param {string} entrypoint 
+ * @param {string} entrypoint
  */
 apiNamespace.entrypoint = (entrypoint) => {
   pipelineStore.getState().setJobAttribute(currentJob, 'entrypoint', entrypoint);
+};
+
+/**
+ * Set the shell program to use (default is /sh)
+ *
+ * e.g.) "bash"
+ * @param {string} shell
+ */
+apiNamespace.shell = (shell) => {
+  pipelineStore.getState().setJobAttribute(currentJob, 'shell', shell);
 };
 
 // apiNamespace.service = () => {

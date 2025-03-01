@@ -13,6 +13,9 @@ const outputDir = 'output-123e4567-e89b-12d3-a456-426614174000';
 
 const logger = getLogger();
 
+// TestContainers ryuk cleans-up images that we create, so disable this
+process.env.TESTCONTAINERS_RYUK_DISABLED = 'true';
+
 class DockerExecutor {
   constructor () {
     let dockerOpts = {
@@ -64,7 +67,7 @@ class DockerExecutor {
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode()
-      .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
+      .withCommand(['bash', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
     logger.debug(`Started container. testContainer=${this.testContainer.getId()} jobName=${name}`);
 
@@ -161,6 +164,7 @@ class DockerExecutor {
       return;
     }
 
+    logger.debug(`Deleting image: ${imageName}`);
     await this.docker.getImage(imageName).remove({ force: true });
   }
 
@@ -210,12 +214,25 @@ class DockerExecutor {
     await mvExec.start({ hijack: true, stdin: false });
   }
 
+  isSubcontainerKilled (containerId) {
+    for (const [, subcontainer] of this.subcontainers) {
+      if (subcontainer.testContainer?.container?.id === containerId) {
+        return subcontainer.isKilled;
+      }
+    }
+    return false;
+  }
+
   async exec (container, ...args) {
-    const state = await this._waitForContainerToUnpause(container);
-    if (!state.Running) {
+    // if this container was already manually killed, then throw isKilled error
+    if (this.isSubcontainerKilled(container.id)) {
       const err = new Error('container is closed');
       err.isKilled = true;
       throw err;
+    }
+    const state = await this._waitForContainerToUnpause(container);
+    if (!state.Running) {
+      throw new Error(`Could not exec ${JSON.stringify(args)}, container crashed unexpectedly: id=${container.id}`);
     }
     try {
       const res = await container.exec(...args);
@@ -230,11 +247,10 @@ class DockerExecutor {
   }
 
   async run (commands, fsStream, opts) {
-    // TODO: 0 -- look into if "commands" need to be translated to proper unix args
-    const { 
+    const {
       clone, env, secrets, name, image, copy = [],
       artifactsDirSrc, artifactsDirDest, workDir,
-      tagName, command, entrypoint,
+      tagName, command, entrypoint, shell,
     } = opts;
     this.runningJob = name;
 
@@ -274,14 +290,19 @@ class DockerExecutor {
       await this._deleteImage(imageName);
     }
 
-    const dockerContainer = clone ?
+    const dockerContainer = (clone || image) ?
       subcontainer.testContainer.container :
       this.docker.getContainer(this.testContainer.getId());
+
+    if (commands.length === 0) {
+      return { exitCode: 0 };
+    }
 
     commands = commands.map((command) => {
       return command.replaceAll(/\$CONTAINER_ID/g, dockerContainer.id);
     });
-    const execCommand = ['sh', '-c', commands.join('; ')];
+
+    const execCommand = [shell || 'bash', '-c', commands.join('; ')];
 
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
 
@@ -347,7 +368,7 @@ class DockerExecutor {
         logger.debug(`Reading exit code from job. jobName=${name} exitCode=${exitCode}`);
 
         const ciOutput = await this.exec(dockerContainer, {
-          Cmd: ['sh', '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
+          Cmd: [shell, '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
           AttachStdout: true,
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
@@ -360,8 +381,7 @@ class DockerExecutor {
           logger.debug(`Final step of job done, reading output. jobName=${name}`);
           if (tagName) {
             const [repo, tag] = tagName.split(':');
-            // TODO: 0 -- bug -- the committed image disappears after a few seconds after closing
-            await dockerContainer.commit({ repo, tag });
+            await this.docker.getContainer(dockerContainer.id).commit({ repo, tag });
           }
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);
@@ -426,10 +446,11 @@ class DockerExecutor {
   }
 
   async stop () {
-    return await Promise.all([
-      this.testContainer?.stop(),
+    const closures = Promise.allSettled([
+      this.testContainer?.container?.remove({ force: true }),
       this.stopSubContainers(this.imageName),
     ]);
+    await closures;
   }
 
   _createValidContainerName (name) {
@@ -453,7 +474,7 @@ class DockerExecutor {
     return await this.clonePromise;
   }
 
-  async _cloneContainer ({ name, image, workDir, subcontainer, command }) {
+  async _cloneContainer ({ name, image, workDir, subcontainer, command, entrypoint }) {
     logger.debug(`Cloning a container. name=${name} image=${image}`);
 
     if (!image) {
@@ -469,15 +490,17 @@ class DockerExecutor {
     const containerName = this._createValidContainerName(this.containerName + '_' + name + '_' + id);
     const cmd = command ? parse(command) : null;
     const newContainer = await new GenericContainer(image || this.imageName)
+      .withLabels() // TODO: label containers with label so they can be marked for deletion later
       .withName(containerName)
       .withWorkingDir(workDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
+      .withEnvironment({ TESTCONTAINERS_RYUK_DISABLED: 'true' }) // Disable RYUK to prevent image cleanup
       .withCommand(
         cmd ||
-        ['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
+        ['bash', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
       )
-      //.withEntrypoint(entrypoint) // TODO: 0 -- uncomment + test this guy
+      .withEntrypoint(entrypoint) // TODO: 0 -- uncomment + test this guy
       .start();
 
     logger.debug(`Container is ready. jobName=${name} name=${containerName} id=${newContainer.getId()}`);
@@ -506,11 +529,8 @@ class DockerExecutor {
     logger.debug(`Destroying container. containerId=${containerId}`);
     this.subcontainers.delete(subcontainer.id);
     try {
-      const container = await subcontainer?.testContainer?.container;
-      if (container) {
-        await container.stop();
-        return await subcontainer?.testContainer?.container?.remove({ force: true });
-      }
+      const container = subcontainer?.testContainer?.container;
+      await container?.remove({ force: true });
     } catch (e) {
       logger.error(`Failed to destroy error. err=${e}`);
     }
@@ -564,6 +584,7 @@ class DockerExecutor {
 }
 
 class Subcontainer {
+  isKilled = false;
   setName (name) { this.name = name; }
   setContainer (container) { this.testContainer = container; }
   setImage (image) { this.image = image; }

@@ -96,9 +96,10 @@ async function buildExecutor (pipelineFile) {
   try {
     let executor = new DockerExecutor();
 
-    process.on('SIGINT', () => {
+    // TODO: 0 -- investigate why CTRL+C twice to exit
+    process.on('SIGINT', async () => {
       logger.info('Terminating pipeline'.gray);
-      executor.stop();
+      await executor.stop();
       if (require.main === module) { process.exit(1); }
     });
     logger.info('Starting container. This may take some time if its first time using this image'.gray);
@@ -175,7 +176,7 @@ async function runJob (executor, job) {
     commands.push(Handlebars.compile(step.command)({ output }));
   }
 
-  let exitCode;
+  let isPassed;
   let workDir = job.workDir || state.workDir;
   let artifactsDirSrc = job.artifactsDir ? path.posix.join(workDir, job.artifactsDir) : null;
   try {
@@ -190,20 +191,28 @@ async function runJob (executor, job) {
       workDir: job.workDir || state.workDir,
       command: job.command,
       entrypoint: job.entrypoint,
+      shell: job.shell,
       artifactsDirSrc,
       artifactsDirDest: artifactsPathDest,
     };
-    const runOutput = await executor.run(commands, logStream, opts);
-    exitCode = runOutput.exitCode;
+    try {
+      let runOutput = await executor.run(commands, logStream, opts);
+      let exitCode = runOutput.exitCode;
 
-    if (exitCode !== 0) {
-      // TODO: add emoji prefixes to all of the loggers to make it more colorful
-      logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
-    } else {
-      if (runOutput.output) {
-        pipelineStore.getState().setJobOutput(runOutput.output, job);
+      if (exitCode !== 0) {
+        // TODO: add emoji prefixes to all of the loggers to make it more colorful
+        logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
+        isPassed = false;
+      } else {
+        if (runOutput.output) {
+          pipelineStore.getState().setJobOutput(runOutput.output, job);
+        }
+        logger.info(`Job '${job.name}' passed.`.green);
+        isPassed = true;
       }
-      logger.info(`Job '${job.name}' passed.`.green);
+    } catch (e) {
+      logger.info(`Job '${job.name}' failed due to err: ${e}`);
+      isPassed = false;
     }
   } catch (err) {
     // 'isKilled' means the job was killed by us so don't do anything
@@ -214,7 +223,7 @@ async function runJob (executor, job) {
     throw err;
   }
 
-  pipelineStore.getState().setJobStatus(job, exitCode === 0 ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
+  pipelineStore.getState().setJobStatus(job, isPassed ? JOB_STATUS.PASSED : JOB_STATUS.FAILED);
 
   // when the job is done, check now if the pipeline has passed or failed
   const pipelineStatus = pipelineStore.getState().status;
@@ -230,7 +239,8 @@ async function runJob (executor, job) {
     }
     if (pipelineStore.getState().exitOnDone) {
       if (require.main === module) {
-        process.exit(exitCode);
+        await executor.stop();
+        process.exit(isPassed ? 0 : 1);
       } else {
         return;
       }
