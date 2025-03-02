@@ -67,7 +67,10 @@ class DockerExecutor {
       .withWorkingDir(workingDir)
       .withStartupTimeout(120000)
       .withPrivilegedMode()
-      .withCommand(['bash', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
+      .withLabels({
+        'carryon': 'carryon',
+      })
+      .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
     logger.debug(`Started container. testContainer=${this.testContainer.getId()} jobName=${name}`);
 
@@ -302,7 +305,7 @@ class DockerExecutor {
       return command.replaceAll(/\$CONTAINER_ID/g, dockerContainer.id);
     });
 
-    const execCommand = [shell || 'bash', '-c', commands.join('; ')];
+    const execCommand = [shell || 'sh', '-c', commands.join('; ')];
 
     const Env = Object.entries(env || {}).map(([key, value]) => `${key}=${value}`);
 
@@ -489,10 +492,11 @@ class DockerExecutor {
     const createOutputCommand = `mkdir -p ${outputDir}`;
     const containerName = this._createValidContainerName(this.containerName + '_' + name + '_' + id);
     const cmd = command ? parse(command) : null;
-    const newContainer = await new GenericContainer(image || this.imageName)
-      .withLabels() // TODO: label containers with label so they can be marked for deletion later
-      .withName(containerName)
+    const newContainer = await new GenericContainer(image || this.imageName).withName(containerName)
       .withWorkingDir(workDir)
+      .withLabels({
+        'carryon': 'carryon',
+      })
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
       .withEnvironment({ TESTCONTAINERS_RYUK_DISABLED: 'true' }) // Disable RYUK to prevent image cleanup
@@ -500,7 +504,7 @@ class DockerExecutor {
         cmd ||
         ['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`]
       )
-      .withEntrypoint(entrypoint) // TODO: 0 -- uncomment + test this guy
+      .withEntrypoint(entrypoint)
       .start();
 
     logger.debug(`Container is ready. jobName=${name} name=${containerName} id=${newContainer.getId()}`);

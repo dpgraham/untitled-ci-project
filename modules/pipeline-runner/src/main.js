@@ -15,6 +15,7 @@ const Handlebars = require('handlebars');
 const { select } = require('@inquirer/prompts');
 const pipelineHelpers = require('./pipeline-helpers');
 const { run: runVisualizer } = require('./server');
+const { cleanupCarryonContainers } = require('./docker-helpers');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
@@ -495,6 +496,13 @@ function main () {
     // TODO: .option('--version', 'Print the version of Carry-On')
     .option('--no-global-variables', 'Do not make Carry-On variables available in global namespace')
     .action((file) => run({ file, opts: program.opts() }));
+
+  program.command('prune')
+    .description('Cleans up all running Carry-On containers')
+    .option('--force', 'Closes all containers including running containers')
+    .action((args) => {
+      cleanupCarryonContainers(args.force);
+    });
 
   program.parse(process.argv);
 }
