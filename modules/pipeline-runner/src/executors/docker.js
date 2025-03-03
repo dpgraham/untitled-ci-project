@@ -372,7 +372,7 @@ class DockerExecutor {
         logger.debug(`Reading exit code from job. jobName=${name} exitCode=${exitCode}`);
 
         const ciOutput = await this.exec(dockerContainer, {
-          Cmd: [shell, '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
+          Cmd: [shell || 'sh', '-c', 'if [ -f "$CI_OUTPUT" ] && [ -s "$CI_OUTPUT" ]; then cat "$CI_OUTPUT" && rm "$CI_OUTPUT"; else echo ""; fi'],
           AttachStdout: true,
         });
         const outputStream = await ciOutput.start({ hijack: true, stdin: false });
