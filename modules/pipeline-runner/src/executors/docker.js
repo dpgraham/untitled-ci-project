@@ -257,13 +257,14 @@ class DockerExecutor {
     } = opts;
     this.runningJob = name;
 
-    // create the "Subcontainer" metadata object
-    let subcontainer = new Subcontainer();
-    const randString = Math.random().toString().substring(2, 10);
-    subcontainer.setId(randString);
-    this.subcontainers.set(randString, subcontainer);
+    let subcontainer = null;
 
     if (clone || image) {
+      // create the "Subcontainer" metadata object
+      subcontainer = new Subcontainer();
+      const randString = Math.random().toString().substring(2, 10);
+      subcontainer.setId(randString);
+      this.subcontainers.set(randString, subcontainer);
       // TODO: 1 -- make an indicator showing when an image is being created
       if (!image) {
         this.imageName = await this._commitClonedImage();
@@ -337,14 +338,14 @@ class DockerExecutor {
       stream.on('end', async () => {
         logger.debug(`Done running command. execCommand='${execCommand}' containerId=${dockerContainer.id}`);
 
-        // if it's cloned container and the container was already removed,
-        // return that this "isKilled"
         if (!subcontainer && !this.runningJob) {
-          logger.debug(`Subcontainer was destroyed by main process. jobName=${name}`);
+          logger.debug(`Job was already canceled, doing nothing. jobName=${name}`);
           reject({ isKilled: true });
           return;
         }
 
+        // if it's cloned container and the container was already removed,
+        // return that this "isKilled"
         if (subcontainer) {
           const isKilled = !this.subcontainers.has(subcontainer.id) || subcontainer.isKilled;
           if (isKilled) {

@@ -23,6 +23,7 @@ function installNode () {
 job('dependencies', () => {
   onFilesChanged('modules/pipeline-runner/package*.json');
   step('npm ci --loglevel verbose');
+  //step.break();
 });
 
 // TODO: add a 'service' type of job where the exec keeps running on a cloned container

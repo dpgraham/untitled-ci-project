@@ -24,4 +24,4 @@ async function cleanupCarryonContainers (force) {
 
 module.exports = {
   cleanupCarryonContainers,
-}
+};

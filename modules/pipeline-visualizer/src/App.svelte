@@ -142,7 +142,8 @@
   {#if state}
   {#if !job && state && state.jobs}
     <h1>{state.pipelineFileBasename}</h1>
-    <h4>STATUS: {state.status}</h4>
+    <h4>PIPELINE STATUS: {state.status}</h4>
+    <h4>PIPELINE RESULT: {state.result}</h4>
     <hr />
     {#each groups as group}
       {#if group.group }
@@ -169,6 +170,7 @@
     <h4>JOB NAME: {job.name}</h4>
     <h4>JOB ID: {job.id}</h4>
     <h4>STATUS: {job.status}</h4>
+    <h4>RESULT: {job.result}</h4>
     {#if ['passed', 'failed', 'running'].includes(job.status)}
       <a href={`/logs/${job.name}/download`}>Download logfile</a>
     {/if}

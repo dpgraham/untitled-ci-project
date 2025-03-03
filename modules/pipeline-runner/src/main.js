@@ -19,8 +19,9 @@ const { cleanupCarryonContainers } = require('./docker-helpers');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
-const logger = getLogger();
+const IS_CLI = require.main === module;
 
+const logger = getLogger();
 const logStreams = {};
 
 async function buildPipeline (pipelineFile) {
@@ -97,12 +98,16 @@ async function buildExecutor (pipelineFile) {
   try {
     let executor = new DockerExecutor();
 
-    // TODO: 0 -- investigate why CTRL+C twice to exit
-    process.on('SIGINT', async () => {
-      logger.info('Terminating pipeline'.gray);
+    // TODO: 0 -- why do I need multiple CTRL+C commands?
+    const exitHandler = async () => {
+      logger.info('SIGINT received. Terminating pipeline now. Removing all containers before exiting'.gray);
       await executor.stop();
-      if (require.main === module) { process.exit(1); }
-    });
+      if (IS_CLI) { process.exit(1); }
+    };
+    process.once('SIGINT', exitHandler);
+    process.once('SIGBREAK', exitHandler);
+    process.once('SIGTERM', exitHandler);
+
     logger.info('Starting container. This may take some time if its first time using this image'.gray);
     await executor.start({image: currentImage, workingDir: workdir, name });
 
@@ -155,6 +160,9 @@ async function runJob (executor, job) {
   const { outputDir } = state;
   const { logFilePath } = job;
 
+  pipelineStore.getState().setResult(pipelineStore.PIPELINE_RESULT.IN_PROGRESS);
+  pipelineStore.getState().setJobAttribute(job, 'result', pipelineStore.JOB_RESULT.IN_PROGRESS);
+
   // set the job ID
   pipelineStore.getState().setJobId(job);
 
@@ -175,6 +183,11 @@ async function runJob (executor, job) {
   const output = pipelineStore.getState().getJobOutputs();
   for (const step of job.steps) {
     commands.push(Handlebars.compile(step.command)({ output }));
+  }
+
+  if (job.break) {
+    pipelineStore.getState().setResult(pipelineStore.PIPELINE_RESULT.BREAKPOINT);
+    pipelineStore.getState().setJobAttribute(job, 'result', pipelineStore.JOB_RESULT.BREAKPOINT);
   }
 
   let isPassed;
@@ -213,6 +226,9 @@ async function runJob (executor, job) {
       }
     } catch (e) {
       logger.info(`Job '${job.name}' failed due to err: ${e}`);
+      if (e.isKilled) {
+        return;
+      }
       isPassed = false;
     }
   } catch (err) {
@@ -239,7 +255,7 @@ async function runJob (executor, job) {
       logger.error(`\nPipeline is failing\n`.red);
     }
     if (pipelineStore.getState().exitOnDone) {
-      if (require.main === module) {
+      if (IS_CLI) {
         await executor.stop();
         process.exit(isPassed ? 0 : 1);
       } else {
@@ -273,7 +289,7 @@ async function promptUserForNextAction (executor) {
     if (selection === 'quit') {
       logger.info('Stopping executor and exiting pipeline...'.gray);
       await Promise.all([executor?.stop(), closeAllLogStreams()]);
-      if (require.main === module) { process.exit(0); }
+      if (IS_CLI) { process.exit(0); }
     }
   } catch (e) {
     // prompt was cancelled if we reach here. do nothing so that user can exit
@@ -402,7 +418,7 @@ async function run ({ file, opts = {} }) {
   pipelineStore.getState().setStatus(PIPELINE_STATUS.IN_PROGRESS);
 
   // run the pipeline
-  const isWatchedProcess = require.main === module && !exitOnDone;
+  const isWatchedProcess = IS_CLI && !exitOnDone;
   try {
     const { outputDir } = pipelineStore.getState();
     logger.info(`Running pipeline. Outputting results to '${outputDir}'`.blue);
@@ -415,7 +431,7 @@ async function run ({ file, opts = {} }) {
     if (executor) {
       await executor.stop();
     }
-    if (require.main === module) {process.exit(1);}
+    if (IS_CLI) {process.exit(1);}
   }
 
   // if it's being run programmatically or in CI mode then end it after first run is done
@@ -480,7 +496,7 @@ async function run ({ file, opts = {} }) {
 
   pipelineFileWatcher.on('unlink', () => {
     logger.info(`Pipeline file deleted '${path.basename(pipelineFile)}'. Exiting.`.gray);
-    if (require.main === module) {process.exit(1);}
+    if (IS_CLI) {process.exit(1);}
   });
 }
 
@@ -507,7 +523,7 @@ function main () {
   program.parse(process.argv);
 }
 
-if (require.main === module) {
+if (IS_CLI) {
   main();
 }
 

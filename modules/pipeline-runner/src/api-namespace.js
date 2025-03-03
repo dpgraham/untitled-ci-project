@@ -98,6 +98,7 @@ apiNamespace.step.break = () => {
   `;
   const command = `echo '${message}'; tail -f /dev/null`;
   pipelineStore.getState().addStep({ command }, currentJob);
+  pipelineStore.getState().setJobAttribute(currentJob, 'break', true);
 };
 
 /**

@@ -17,6 +17,8 @@ const JOB_RESULT = {
   FAILED: 'failed',
   SKIPPED: 'skipped',
   TIMEOUT: 'timeout',
+  IN_PROGRESS: 'in progress',
+  BREAKPOINT: 'breakpoint',
 };
 
 const PIPELINE_STATUS = {
@@ -24,6 +26,11 @@ const PIPELINE_STATUS = {
   IN_PROGRESS: 'in progress',
   PASSED: 'passed',
   FAILED: 'failed',
+};
+
+const PIPELINE_RESULT = {
+  BREAKPOINT: 'breakpoint',
+  IN_PROGRESS: 'in progress',
 };
 
 const createPipelineStore = (set) => ({
@@ -320,6 +327,12 @@ const createPipelineStore = (set) => ({
       }
     }
   })),
+  setAttribute: (attrName, attrValue) => set((state) => {
+    return {
+      ...state,
+      [attrName]: attrValue,
+    };
+  }),
   setJobAttribute: (job, attrName, attrValue) => set((state) => produce(state, (draft) => {
     for (const checkJob of draft.jobs) {
       if (checkJob.name === job.name) {
@@ -422,5 +435,6 @@ module.exports = pipelineStore;
 module.exports.JOB_STATUS = JOB_STATUS;
 module.exports.JOB_RESULT = JOB_RESULT;
 module.exports.PIPELINE_STATUS = PIPELINE_STATUS;
+module.exports.PIPELINE_RESULT = PIPELINE_RESULT;
 module.exports.handleStateChange = handleStateChange;
 module.exports.removeStateChangeHandler = removeStateChangeHandler;
