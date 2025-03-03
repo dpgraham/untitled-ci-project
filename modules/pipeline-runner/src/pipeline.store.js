@@ -31,6 +31,7 @@ const PIPELINE_STATUS = {
 const PIPELINE_RESULT = {
   BREAKPOINT: 'breakpoint',
   IN_PROGRESS: 'in progress',
+  RESTARTING: 'restarting',
 };
 
 const createPipelineStore = (set) => ({
