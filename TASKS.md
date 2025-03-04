@@ -6,3 +6,6 @@ TODO: 1 --- stop re-cloning the main container on file change but rather just co
   straight to the subcontainers
 
 # BUGS
+
+# REFACTOR STEPS
+TODO: change "stopExec" to be more specific to the job

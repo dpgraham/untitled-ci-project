@@ -43,6 +43,7 @@ const createPipelineStore = (set) => ({
   maxConcurrency: 2,
   outputDir: 'ci-output',
   workDir: '/ci',
+  pipelineId: `pipeline-${uuidv4()}`,
   enqueueJobs: () => set((state) => produce(state, (draft) => {
     let group;
 

@@ -48,7 +48,7 @@ job('log B', function () {
 });
 
 job('echo world', function () {
-  onFilesChanged('c.log');
+  onFilesChanged('./tiny/c.log');
   group('echos');
   step('sleep 5');
   step('echo world');

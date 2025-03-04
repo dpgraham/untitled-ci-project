@@ -89,14 +89,14 @@ async function createLogFiles (jobs) {
 }
 
 async function buildExecutor (pipelineFile) {
-  const { image: currentImage, files, ignorePatterns } = pipelineStore.getState();
+  const { image: currentImage, files, ignorePatterns, pipelineId } = pipelineStore.getState();
 
   const pipelineDir = path.dirname(pipelineFile);
   const workdir = pipelineStore.getState().workDir;
   const name = path.basename(pipelineFile);
 
   try {
-    let executor = new DockerExecutor();
+    let executor = new DockerExecutor({ pipelineId });
 
     // TODO: 0 -- why do I need multiple CTRL+C commands?
     const exitHandler = async () => {
@@ -109,7 +109,7 @@ async function buildExecutor (pipelineFile) {
     process.once('SIGTERM', exitHandler);
 
     logger.info('Starting container. This may take some time if its first time using this image'.gray);
-    await executor.start({image: currentImage, workingDir: workdir, name });
+    await executor.start({image: currentImage, workingDir: workdir, name, pipelineId });
 
     // copy files from host to container
     if (files) {
@@ -202,6 +202,7 @@ async function runJob (executor, job) {
       name: job.name,
       image: job.image,
       copy: job.copy,
+      id: job.id,
       workDir: job.workDir || state.workDir,
       command: job.command,
       entrypoint: job.entrypoint,

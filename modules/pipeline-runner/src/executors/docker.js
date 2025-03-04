@@ -17,7 +17,7 @@ const logger = getLogger();
 process.env.TESTCONTAINERS_RYUK_DISABLED = 'true';
 
 class DockerExecutor {
-  constructor () {
+  constructor ({ pipelineId }) {
     let dockerOpts = {
       host: env.DOCKER_HOST,
       port: env.DOCKER_PORT,
@@ -40,6 +40,8 @@ class DockerExecutor {
         delete dockerOpts[key];
       }
     });
+
+    this.pipelineId = pipelineId;
 
     this.docker = new Docker(dockerOpts);
     this.testContainer = null;
@@ -69,6 +71,7 @@ class DockerExecutor {
       .withPrivilegedMode()
       .withLabels({
         'carryon': 'carryon',
+        'carryon-pipeline-id': this.pipelineId,
       })
       .withCommand(['sh', '-c', `echo 'Container is ready' && ${createOutputCommand} && tail -f /dev/null`])
       .start();
@@ -497,6 +500,8 @@ class DockerExecutor {
       .withWorkingDir(workDir)
       .withLabels({
         'carryon': 'carryon',
+        'carryon-pipeline-id': this.pipelineId,
+        'carryon-job-name': name,
       })
       .withStartupTimeout(120000)
       .withPrivilegedMode(true)
