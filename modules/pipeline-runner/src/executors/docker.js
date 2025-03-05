@@ -187,7 +187,7 @@ class DockerExecutor {
     const pack = tar.pack();
 
     extract.on('entry', (header, stream, next) => {
-      // TODO: 2... investigate this mystery some day why it doesn't work and gives 404!
+      // investigate this mystery some day why it doesn't work and gives 404!
       // header.name = slash(path.relative(sourcePath, header.name));
       stream.pipe(pack.entry(header, next));
     });
@@ -268,7 +268,6 @@ class DockerExecutor {
       const randString = Math.random().toString().substring(2, 10);
       subcontainer.setId(randString);
       this.subcontainers.set(randString, subcontainer);
-      // TODO: 1 -- make an indicator showing when an image is being created
       if (!image) {
         this.imageName = await this._commitClonedImage();
       }

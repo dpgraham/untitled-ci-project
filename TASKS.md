@@ -9,4 +9,4 @@ TODO: 1 -- add image pruning to Prune task
 # BUGS
 
 # REFACTOR STEPS
-TODO: change "stopExec" to be more specific to the job
+TODO: 1 -- change "stopExec" to be more specific to the job

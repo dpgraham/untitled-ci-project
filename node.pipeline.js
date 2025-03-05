@@ -52,8 +52,6 @@ job('unit-test', () => {
 
 // job('commit-and-push', () => {
 //   image('<base-image>');
-//   copy('/filepath'); // TODO: copies files from the main image into this one
-//   commit('<tag-name>'); // TODO: commits this image with <tag-name>
 //   push('<docker-repo>'); // TODO: pushes this image to a Docker repository
 // });
 

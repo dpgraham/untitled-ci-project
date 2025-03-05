@@ -16,6 +16,7 @@ const { select } = require('@inquirer/prompts');
 const pipelineHelpers = require('./pipeline-helpers');
 const { run: runVisualizer } = require('./server');
 const { cleanupCarryonContainers } = require('./docker-helpers');
+const packageJson = require('../package.json');
 
 const { JOB_STATUS, PIPELINE_STATUS } = pipelineStore;
 
@@ -137,7 +138,7 @@ function printJobInfo (nextJobs) {
   } else if (jobNames.length === 1) {
     logger.info(`Running job: '${jobNames[0]}'`.blue);
   }
-  // TODO: when a job is running, show dot indicator for progress + prevent timeouts
+  // TODO: 1 -- when a job is running, show dot indicator for progress + prevent timeouts
 }
 
 async function closeAllLogStreams () {
@@ -222,7 +223,7 @@ async function runJob (executor, job) {
       let exitCode = runOutput.exitCode;
 
       if (exitCode !== 0) {
-        // TODO: add emoji prefixes to all of the loggers to make it more colorful
+        // TODO: 1 -- add emoji prefixes to all of the loggers to make it more colorful
         logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
         isPassed = false;
       } else {
@@ -517,11 +518,21 @@ function main () {
   program
     .name('pipeline-runner')
     .description('Run a pipeline')
-    .argument('<file>', 'Path to the pipeline file')
+    .argument('[file]', 'Path to the pipeline file')
     .option('--ci', 'Exit immediately when the job is done')
-    // TODO: .option('--version', 'Print the version of Carry-On')
+    .option('--version', 'Print the version of Carry-On')
     .option('--no-global-variables', 'Do not make Carry-On variables available in global namespace')
-    .action((file) => run({ file, opts: program.opts() }));
+    .action((file) => {
+      let opts = program.opts();
+      if (opts.version) {
+        logger.info(`Carry-On version: ${packageJson.version}`);
+        process.exit(0);
+      }
+      if (!file) {
+        throw new Error('Missing required argument <file>');
+      }
+      run({ file, opts });
+    });
 
   program.command('prune')
     .description('Cleans up all running Carry-On containers')
