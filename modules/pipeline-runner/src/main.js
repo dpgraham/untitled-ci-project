@@ -211,7 +211,14 @@ async function runJob (executor, job) {
       artifactsDirDest: artifactsPathDest,
     };
     try {
-      let runOutput = await executor.run(commands, logStream, opts);
+      let retries = job.retries;
+      let attempt = 0;
+      let runOutput;
+      while (attempt < (retries || 1)) {
+        if (attempt++ > 0) {logger.info(`Retrying job`);}
+        runOutput = await executor.run(commands, logStream, opts);
+        if (runOutput.exitCode === 0) {break;}
+      }
       let exitCode = runOutput.exitCode;
 
       if (exitCode !== 0) {
@@ -483,7 +490,7 @@ async function run ({ file, opts = {} }) {
   });
 
   pipelineFileWatcher.on('change', async () => {
-    // TODO: 1 -- mark status as "restarting"
+    pipelineStore.getState().setResult(pipelineStore.JOB_RESULT.RESTARTING);
     promptPromise?.cancel();
     logger.info(`\nYou changed the pipeline file '${path.basename(pipelineFile)}'. Re-starting...`.gray);
     debouncedRunNextJobs.cancel();

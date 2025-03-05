@@ -20,7 +20,6 @@ job('log A', function () {
   step('cat a.log');
   step('echo "\n$HELLO"');
   //step.break();
-  // retries(3); // TODO: 1 --  add a feature to retry it if job is flakey
   step('echo "\n$SECRET"');
   step('echo "Smash Mouth" >> "$CI_OUTPUT"');
 });

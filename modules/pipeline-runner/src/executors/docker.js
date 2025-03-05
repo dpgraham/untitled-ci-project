@@ -388,7 +388,11 @@ class DockerExecutor {
           logger.debug(`Final step of job done, reading output. jobName=${name}`);
           if (tagName) {
             const [repo, tag] = tagName.split(':');
-            await this.docker.getContainer(dockerContainer.id).commit({ repo, tag });
+            await this.docker.getContainer(dockerContainer.id)
+              .commit({
+                repo,
+                tag,
+              });
           }
           if (subcontainer) {
             logger.debug(`Cleaning up container. containerId=${subcontainer.id}`);

@@ -125,6 +125,14 @@ apiNamespace.concurrency = (concurrency) => {
 };
 
 /**
+ * How many times to retry a job if it fails
+ * @param {number} retries
+ */
+apiNamespace.retries = (retries) => {
+  pipelineStore.getState().setJobAttribute(currentJob, 'retries', retries);
+};
+
+/**
  * Path in container where files are copied to and where commands are run
  *
  * @param {string} workdir

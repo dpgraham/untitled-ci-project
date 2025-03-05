@@ -19,6 +19,7 @@ const JOB_RESULT = {
   TIMEOUT: 'timeout',
   IN_PROGRESS: 'in progress',
   BREAKPOINT: 'breakpoint',
+  RESTARTING: 'restarting',
 };
 
 const PIPELINE_STATUS = {
