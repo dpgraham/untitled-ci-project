@@ -17,7 +17,7 @@ function installNode () {
   step('node --version');
 }
 
-// TODO: allow exposing a port from inside container to outside
+// TODO: 1 -- allow exposing a port from inside container to outside
 // port(HOST_PORT, CONTAINER_PORT);
 
 job('dependencies', () => {
@@ -26,7 +26,7 @@ job('dependencies', () => {
   //step.break();
 });
 
-// TODO: add a 'service' type of job where the exec keeps running on a cloned container
+// TODO: 1 -- add a 'service' type of job where the exec keeps running on a cloned container
 // job('server', () => {
 //   // service();
 //   step('npm run build');

@@ -138,7 +138,6 @@ function printJobInfo (nextJobs) {
   } else if (jobNames.length === 1) {
     logger.info(`Running job: '${jobNames[0]}'`.blue);
   }
-  // TODO: 1 -- when a job is running, show dot indicator for progress + prevent timeouts
 }
 
 async function closeAllLogStreams () {
@@ -223,7 +222,6 @@ async function runJob (executor, job) {
       let exitCode = runOutput.exitCode;
 
       if (exitCode !== 0) {
-        // TODO: 1 -- add emoji prefixes to all of the loggers to make it more colorful
         logger.info(`Job '${job.name}' failed with exit code: ${exitCode}`.red); // Log failure
         isPassed = false;
       } else {
@@ -288,6 +286,7 @@ async function runJob (executor, job) {
  */
 async function promptUserForNextAction (executor) {
   promptPromise?.cancel();
+  this.dotsInterval && clearInterval(this.dotsInterval);
   promptPromise = select({
     message: 'Select next action',
     choices: [
@@ -338,6 +337,13 @@ async function runNextJobs (executor) {
     jobs.push(runJob(executor, nextJob));
   }
   await Promise.all(jobs);
+}
+
+function logDots () {
+  this.dotsInterval = setInterval(() => {
+    process.stdout.write('.');
+    logger.shouldNewline = true;
+  }, 1000);
 }
 
 // debouncing 'runNextJobs' makes it so that it will wait for the user to
@@ -394,6 +400,8 @@ async function handleFileChange (executor, filePath, isDeletion = false) {
 async function run ({ file, opts = {} }) {
   const pipelineFile = path.resolve(process.cwd(), file);
   let executor;
+
+  logDots(); // log dots to stdout so that CI/CD does not time out
 
   pipelineStore.getState().setStatus(PIPELINE_STATUS.QUEUED);
 
