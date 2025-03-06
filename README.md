@@ -1,8 +1,8 @@
 # CARRY-ON (WORKING TITLE)
 
-Carry-On is a CLI tool that let's you define your CI/CD pipelines as a JS file (no YML, JSON or XML) and then run your pipelines from the command line. With Carry-On, you can leave your pipelines running in the background while you work, and will re-run jobs as you edit your files.  
+Carry-On is a CLI tool that let's you define your CI/CD pipelines as a JS file (no YML, JSON or XML) and then run your pipelines from the command line. With Carry-On, you can leave your pipelines running in the background while you work, and it will re-run jobs as you make changes.  
 
-The goal of Carry-On is that you shouldn't have to wait to push your code changes to the repository for your pipelines to run. Your pipelines should be running continuously as you work.
+The idea of Carry-On is that you shouldn't have to push your code changes to the repository to find out if your pipelines are passing. Not only should you be able to run your pipelines locally, but your pipelines should be running continuously in the background as you're working, so that you'll know immediately 
 
 ## PIPELINE SYNTAX
 
