@@ -46,7 +46,8 @@ job('unit-test', () => {
   copy('ci', '.'); // copies the files from the main container into this one
   group('tests');
   installNode();
-  step('npm run test');
+  step('(dockerd &)'); // TODO: 1 -- see if the () can be optional
+  step('(npm run test)');
 });
 
 // job('commit-and-push', () => {

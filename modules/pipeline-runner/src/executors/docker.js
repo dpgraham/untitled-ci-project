@@ -456,11 +456,14 @@ class DockerExecutor {
   }
 
   async stop () {
-    const closures = Promise.allSettled([
-      this.testContainer?.container?.remove({ force: true }),
-      this.stopSubContainers(this.imageName),
-    ]);
-    await closures;
+    try {
+      await Promise.all([
+        this.testContainer?.container?.remove({ force: true }),
+        this.stopSubContainers(this.imageName),
+      ]);
+    } catch (e) {
+      // do nothing on err
+    }
   }
 
   _createValidContainerName (name) {
