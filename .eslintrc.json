@@ -17,5 +17,5 @@
   "globals": {
     "expect": "readonly"
   },
-  "ignorePatterns": ["*.pipeline.js", "dist/"] 
+  "ignorePatterns": ["*.pipeline.js", "dist/", "out/"]
 }

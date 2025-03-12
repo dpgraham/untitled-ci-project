@@ -99,7 +99,6 @@ async function buildExecutor (pipelineFile) {
   try {
     let executor = new DockerExecutor({ pipelineId });
 
-    // TODO: 0 -- why do I need multiple CTRL+C commands?
     const exitHandler = async () => {
       logger.info('SIGINT received. Terminating pipeline now. Removing all containers before exiting'.gray);
       await executor.stop();
@@ -252,8 +251,6 @@ async function runJob (executor, job) {
   // when the job is done, check now if the pipeline has passed or failed
   const pipelineStatus = pipelineStore.getState().status;
 
-  // TODO: 1 -- add a fail strategy option that kills a group once just one has failed
-
   // if the pipeline is complete, log message and don't dequeue any more jobs
   if ([PIPELINE_STATUS.PASSED, PIPELINE_STATUS.FAILED].includes(pipelineStatus)) {
     if (pipelineStatus === PIPELINE_STATUS.PASSED) {
@@ -286,7 +283,7 @@ async function runJob (executor, job) {
  */
 async function promptUserForNextAction (executor) {
   promptPromise?.cancel();
-  this.dotsInterval && clearInterval(this.dotsInterval);
+  dotsInterval && clearInterval(dotsInterval);
   promptPromise = select({
     message: 'Select next action',
     choices: [
@@ -339,8 +336,10 @@ async function runNextJobs (executor) {
   await Promise.all(jobs);
 }
 
+let dotsInterval = null;
+
 function logDots () {
-  this.dotsInterval = setInterval(() => {
+  dotsInterval = setInterval(() => {
     process.stdout.write('.');
     logger.shouldNewline = true;
   }, 1000);
@@ -539,7 +538,11 @@ function main () {
       if (!file) {
         throw new Error('Missing required argument <file>');
       }
-      run({ file, opts });
+      run({ file, opts })
+        .catch((e) => {
+          logger.error(`Pipeline failed. An unexpected error occurred: ${e}`.red);
+          process.exit(1);
+        });
     });
 
   program.command('prune')

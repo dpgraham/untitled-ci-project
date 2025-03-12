@@ -6,7 +6,7 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 
 /**
  * Gets a singleton instance of Winston logger
- * 
+ *
  * @returns {winston.Logger}
  */
 function getLogger () {

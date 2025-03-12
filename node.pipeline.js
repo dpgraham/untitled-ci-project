@@ -47,7 +47,6 @@ job('unit-test', () => {
   group('tests');
   installNode();
   step('npm run test');
-  step('ls -lah ./');
 });
 
 // job('commit-and-push', () => {
