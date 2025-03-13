@@ -305,8 +305,10 @@ class DockerExecutor {
     }
 
     commands = commands.map((command) => {
-      return command.replaceAll(/\$CONTAINER_ID/g, dockerContainer.id);
+      return '(' + command.replaceAll(/\$CONTAINER_ID/g, dockerContainer.id) + ')';
     });
+
+    commands.unshift('set -e');
 
     const execCommand = [shell || 'sh', '-c', commands.join('; ')];
 

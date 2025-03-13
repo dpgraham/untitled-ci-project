@@ -35,7 +35,7 @@ async function buildPipeline (pipelineFile) {
     importFresh(pipelineFile);
   } catch (e) {
     logger.error(`Pipeline is invalid. Syntax error: ${e.stack}`.red);
-    return new Error(`invalid pipeline`);
+    throw new Error(`invalid pipeline`);
   }
 
   // close any already open log streams
@@ -283,7 +283,7 @@ async function runJob (executor, job) {
  */
 async function promptUserForNextAction (executor) {
   promptPromise?.cancel();
-  dotsInterval && clearInterval(dotsInterval);
+  stopLogDots();
   promptPromise = select({
     message: 'Select next action',
     choices: [
@@ -343,6 +343,10 @@ function logDots () {
     process.stdout.write('.');
     logger.shouldNewline = true;
   }, 1000);
+}
+
+function stopLogDots () {
+  dotsInterval && clearInterval(dotsInterval);
 }
 
 // debouncing 'runNextJobs' makes it so that it will wait for the user to
@@ -427,7 +431,8 @@ async function run ({ file, opts = {} }) {
 
   const err = await buildPipeline(pipelineFile);
   if (err) {
-    return;
+    stopLogDots();
+    throw new Error(err);
   }
   executor = await buildExecutor(pipelineFile);
 

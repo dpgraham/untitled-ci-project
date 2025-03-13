@@ -11,7 +11,6 @@ output('output-ci/');
 
 function installNode () {
   step(`apk add --no-cache curl`);
-  step('curl -fsSL https://deb.nodesource.com/setup_18.x | sh');
   step('apk add --no-cache nodejs npm');
   step('echo "installed node"');
   step('node --version');
@@ -46,8 +45,8 @@ job('unit-test', () => {
   copy('ci', '.'); // copies the files from the main container into this one
   group('tests');
   installNode();
-  step('(dockerd &)'); // TODO: 1 -- see if the () can be optional
-  step('(npm run test)');
+  step('dockerd &');
+  step('npm run test');
 });
 
 // job('commit-and-push', () => {
